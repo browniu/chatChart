@@ -1,0 +1,5 @@
+{
+  "name": "ChartGen AI",
+  "description": "Transform natural language into beautiful, editable charts using Gemini and Recharts.",
+  "requestFramePermissions": []
+}
