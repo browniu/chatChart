@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { generateChartFromPrompt } from './services/geminiService';
+import { generateChartFromPrompt as generateChartFromGemini } from './services/geminiService';
+import { generateChartFromPrompt as generateChartFromZhipu } from './services/zhipuService';
+import { generateChartFromPrompt as generateChartFromOpenAI, OPENAI_COMPATIBLE_PLATFORMS, OpenAIPlatformKey } from './services/openAIStyleService';
 import { ChartConfig, HistoryItem } from './types';
 import ChartRenderer from './components/ChartRenderer';
 import HistorySidebar from './components/HistorySidebar';
@@ -137,7 +139,31 @@ const MainContent: React.FC = () => {
     setLoading(true);
     setCodeError(null);
     try {
-      const config = await generateChartFromPrompt(prompt, lang);
+      // 获取用户选择的模型提供商
+      const modelProvider = (localStorage.getItem('modelProvider') || 'gemini') as 'gemini' | 'zhipu' | 'openai';
+      
+      // 根据选择调用不同的服务
+      let config: ChartConfig;
+      
+      if (modelProvider === 'zhipu') {
+        config = await generateChartFromZhipu(prompt, lang);
+      } else if (modelProvider === 'openai') {
+        // 获取 OpenAI 兼容平台的配置
+        const openaiPlatform = (localStorage.getItem('openaiPlatform') || 'xiaomi') as OpenAIPlatformKey;
+        const openaiApiKey = localStorage.getItem('openaiApiKey') || '';
+        const openaiBaseUrl = localStorage.getItem('openaiBaseUrl') || OPENAI_COMPATIBLE_PLATFORMS[openaiPlatform].defaultBaseUrl;
+        const openaiModel = localStorage.getItem('openaiModel') || OPENAI_COMPATIBLE_PLATFORMS[openaiPlatform].defaultModel;
+        
+        config = await generateChartFromOpenAI(prompt, lang, {
+          apiKey: openaiApiKey,
+          baseUrl: openaiBaseUrl,
+          model: openaiModel,
+          temperature: 0.3
+        });
+      } else {
+        config = await generateChartFromGemini(prompt, lang);
+      }
+      
       const code = JSON.stringify(config, null, 2);
       setEditableCode(code);
       setCurrentConfig(config);
