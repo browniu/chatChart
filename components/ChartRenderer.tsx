@@ -9,9 +9,10 @@ interface ChartRendererProps {
   config: ChartConfig;
   chartRef?: React.RefObject<HTMLDivElement>;
   isDarkMode: boolean;
+  palette?: string[];
 }
 
-const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkMode }) => {
+const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkMode, palette }) => {
   const { chartType, data, xAxisKey, series } = config;
 
   const textColor = isDarkMode ? "#e2e8f0" : "#374151";
@@ -23,6 +24,10 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkM
     borderRadius: '8px',
     boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
   };
+
+  // Default colorful palette if none provided
+  const defaultPalette = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"];
+  const activePalette = palette && palette.length > 0 ? palette : defaultPalette;
 
   const renderChart = () => {
     switch (chartType) {
@@ -110,8 +115,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkM
                 stroke={isDarkMode ? "#1f2937" : "#fff"}
               >
                  {data.map((entry, index) => {
-                   const colors = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"];
-                   return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} stroke={isDarkMode ? "#1f2937" : "#fff"} />;
+                   return <Cell key={`cell-${index}`} fill={activePalette[index % activePalette.length]} stroke={isDarkMode ? "#1f2937" : "#fff"} />;
                  })}
               </Pie>
             ))}

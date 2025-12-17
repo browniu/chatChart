@@ -4,21 +4,34 @@ import { ChartConfig, HistoryItem } from './types';
 import ChartRenderer from './components/ChartRenderer';
 import HistorySidebar from './components/HistorySidebar';
 import { 
-  Menu, Send, Image as ImageIcon, FileJson, 
-  Loader2, Sparkles, AlertCircle, Sun, Moon, GripHorizontal
+  Menu, Send, Image as ImageIcon,
+  Loader2, Sparkles, AlertCircle, Sun, Moon, Palette,
+  PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
 
 const INITIAL_PROMPT = "2025年Q1-Q4问题解决率趋势图，曲线在Q3触底后于Q4强劲反弹，突破70%";
+
+// Predefined Palettes
+const PALETTES = {
+  default: { name: 'Default', colors: ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"] },
+  ocean: { name: 'Ocean', colors: ['#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7'] },
+  sunset: { name: 'Sunset', colors: ['#f97316', '#ef4444', '#e11d48', '#be123c', '#881337'] },
+  forest: { name: 'Forest', colors: ['#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4'] },
+  monochrome: { name: 'Mono', colors: ['#1f2937', '#4b5563', '#6b7280', '#9ca3af', '#d1d5db'] }
+};
 
 const App: React.FC = () => {
   const [prompt, setPrompt] = useState(INITIAL_PROMPT);
   const [loading, setLoading] = useState(false);
   const [currentConfig, setCurrentConfig] = useState<ChartConfig | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [isSidebarOpen, setSidebarOpen] = useState(false); // For Mobile Overlay
+  const [isSidebarVisible, setSidebarVisible] = useState(true); // For Desktop Collapse
   const [editableCode, setEditableCode] = useState("");
   const [codeError, setCodeError] = useState<string | null>(null);
+  const [selectedPalette, setSelectedPalette] = useState<keyof typeof PALETTES>('default');
+  const [isPaletteMenuOpen, setPaletteMenuOpen] = useState(false);
   
   // Theme State
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -93,10 +106,6 @@ const App: React.FC = () => {
 
   const handleMouseMove = (e: MouseEvent) => {
     if (isResizingRef.current) {
-        // Simple height calculation, usually relative to the chart container top would be better but simple dy works for now if we track offset
-        // Better approach: Calculate new height based on mouse Y position
-        // Since the chart is in a scrollable container, we can't just use pageY directly without offset context.
-        // However, movementY works for relative changes.
         setChartHeight(prev => Math.max(300, Math.min(1200, prev + e.movementY)));
     }
   };
@@ -107,7 +116,6 @@ const App: React.FC = () => {
     document.removeEventListener('mouseup', handleMouseUp);
   };
 
-
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
     setLoading(true);
@@ -117,6 +125,10 @@ const App: React.FC = () => {
       const code = JSON.stringify(config, null, 2);
       setEditableCode(code);
       setCurrentConfig(config);
+      // Reset palette on new generation to allow AI colors to shine, or keep existing?
+      // Let's reset to default to see what AI produced.
+      setSelectedPalette('default');
+      
       const newItem: HistoryItem = {
         id: Date.now().toString(),
         timestamp: Date.now(),
@@ -130,6 +142,27 @@ const App: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleApplyPalette = (paletteKey: keyof typeof PALETTES) => {
+    setSelectedPalette(paletteKey);
+    setPaletteMenuOpen(false);
+
+    if (!currentConfig) return;
+
+    const colors = PALETTES[paletteKey].colors;
+    
+    // Create a new config object with updated colors
+    const newConfig = { ...currentConfig };
+    
+    // Update series colors
+    newConfig.series = newConfig.series.map((s, idx) => ({
+      ...s,
+      color: colors[idx % colors.length]
+    }));
+
+    setCurrentConfig(newConfig);
+    setEditableCode(JSON.stringify(newConfig, null, 2));
   };
 
   const handleHistorySelect = (item: HistoryItem) => {
@@ -164,22 +197,6 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDownloadSVG = () => {
-    if (!chartContainerRef.current) return;
-    const svg = chartContainerRef.current.querySelector('svg');
-    if (svg) {
-      const svgData = new XMLSerializer().serializeToString(svg);
-      const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.download = `chart-${Date.now()}.svg`;
-      link.href = url;
-      link.click();
-    } else {
-        alert("SVG Element not found");
-    }
-  };
-
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-950 font-sans text-slate-800 dark:text-slate-100 overflow-hidden transition-colors">
       {/* Sidebar Overlay for Mobile */}
@@ -191,17 +208,25 @@ const App: React.FC = () => {
       )}
 
       {/* Sidebar */}
-      <div className={`
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
-        lg:translate-x-0 transition-transform duration-300 ease-in-out
-        fixed lg:static z-20 h-full flex-shrink-0
-      `}>
-        <HistorySidebar 
-          isOpen={true} 
-          history={history} 
-          onSelect={handleHistorySelect}
-          onClear={handleClearHistory}
-        />
+      <div 
+        className={`
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
+          lg:translate-x-0 
+          ${isSidebarVisible ? 'lg:w-80' : 'lg:w-0'}
+          transition-all duration-300 ease-in-out
+          fixed lg:static z-20 h-full flex-shrink-0 overflow-hidden
+          border-r border-gray-200 dark:border-gray-700
+          bg-white dark:bg-gray-900
+        `}
+      >
+        <div className="w-80 h-full">
+           <HistorySidebar 
+            isOpen={true} 
+            history={history} 
+            onSelect={handleHistorySelect}
+            onClear={handleClearHistory}
+          />
+        </div>
       </div>
 
       {/* Main Content */}
@@ -215,6 +240,14 @@ const App: React.FC = () => {
             >
               <Menu size={20} />
             </button>
+            <button
+               onClick={() => setSidebarVisible(!isSidebarVisible)}
+               className="hidden lg:block p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+               title={isSidebarVisible ? "Collapse Sidebar" : "Expand Sidebar"}
+            >
+               {isSidebarVisible ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
+            </button>
+
             <div className="flex items-center gap-2">
                <div className="bg-blue-600 p-2 rounded-lg text-white shadow-lg shadow-blue-500/30">
                   <Sparkles size={20} fill="white" />
@@ -226,21 +259,58 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex gap-2 items-center">
+             
+             {/* Palette Selector */}
+             <div className="relative">
+                <button 
+                  onClick={() => setPaletteMenuOpen(!isPaletteMenuOpen)}
+                  className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors flex items-center gap-2"
+                  title="Change Color Theme"
+                >
+                  <Palette size={20} />
+                  <span className="hidden sm:inline text-sm font-medium">{PALETTES[selectedPalette].name}</span>
+                </button>
+                
+                {isPaletteMenuOpen && (
+                  <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
+                    {Object.entries(PALETTES).map(([key, palette]) => (
+                      <button
+                        key={key}
+                        onClick={() => handleApplyPalette(key as keyof typeof PALETTES)}
+                        className={`w-full text-left px-4 py-3 text-sm flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors
+                          ${selectedPalette === key ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-gray-700/50' : 'text-gray-700 dark:text-gray-300'}
+                        `}
+                      >
+                         <div className="flex gap-1">
+                            {palette.colors.slice(0, 3).map(c => (
+                              <div key={c} className="w-3 h-3 rounded-full" style={{ backgroundColor: c }} />
+                            ))}
+                         </div>
+                         {palette.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                
+                {isPaletteMenuOpen && (
+                  <div className="fixed inset-0 z-40" onClick={() => setPaletteMenuOpen(false)} />
+                )}
+             </div>
+
+             <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
+
              <button
                 onClick={() => setIsDarkMode(!isDarkMode)}
-                className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors mr-2"
+                className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors"
                 title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
               >
                 {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
              </button>
 
             {currentConfig && (
-                 <div className="flex gap-1">
+                 <div className="flex gap-1 ml-2">
                     <button onClick={handleDownloadImage} title="Download PNG" className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors border border-gray-200 dark:border-gray-700">
                       <ImageIcon size={16} /> <span className="hidden sm:inline">PNG</span>
-                    </button>
-                    <button onClick={handleDownloadSVG} title="Download SVG" className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors border border-gray-200 dark:border-gray-700">
-                      <FileJson size={16} /> <span className="hidden sm:inline">SVG</span>
                     </button>
                  </div>
                )}
@@ -274,17 +344,25 @@ const App: React.FC = () => {
             </div>
 
             {/* Code Editor */}
-            <div className="flex-1 flex flex-col min-h-0 bg-[#1e1e1e] dark:bg-[#0d1117] transition-colors">
-               <div className="bg-[#2d2d2d] dark:bg-[#161b22] px-4 py-2 text-xs font-mono text-gray-400 border-b border-[#3e3e3e] dark:border-gray-800 flex justify-between items-center transition-colors">
+            <div className={`flex-1 flex flex-col min-h-0 transition-colors ${isDarkMode ? 'bg-[#0d1117]' : 'bg-gray-50'}`}>
+               <div className={`
+                  px-4 py-2 text-xs font-mono border-b flex justify-between items-center transition-colors
+                  ${isDarkMode ? 'bg-[#161b22] text-gray-400 border-gray-800' : 'bg-white text-gray-500 border-gray-200'}
+               `}>
                   <span>SOURCE CODE (JSON)</span>
                   {codeError ? (
                     <span className="text-red-400 flex items-center gap-1"><AlertCircle size={12}/> Invalid JSON</span>
                   ) : (
-                    <span className="text-green-500">Live Editing</span>
+                    <span className="text-green-500 dark:text-green-500 text-green-600">Live Editing</span>
                   )}
                </div>
                <textarea 
-                  className="flex-1 w-full bg-[#1e1e1e] dark:bg-[#0d1117] text-blue-300 font-mono text-xs sm:text-sm p-4 outline-none resize-none leading-relaxed transition-colors"
+                  className={`
+                    flex-1 w-full font-mono text-xs sm:text-sm p-4 outline-none resize-none leading-relaxed transition-colors
+                    ${isDarkMode 
+                      ? 'bg-[#0d1117] text-blue-300' 
+                      : 'bg-white text-blue-700'}
+                  `}
                   value={editableCode}
                   onChange={(e) => setEditableCode(e.target.value)}
                   spellCheck={false}
@@ -316,7 +394,12 @@ const App: React.FC = () => {
                         )}
                       </div>
                       <div className="flex-1 w-full min-h-0 p-4 bg-white dark:bg-gray-800 transition-colors" id="chart-capture-target">
-                         <ChartRenderer config={currentConfig} chartRef={chartContainerRef} isDarkMode={isDarkMode} />
+                         <ChartRenderer 
+                            config={currentConfig} 
+                            chartRef={chartContainerRef} 
+                            isDarkMode={isDarkMode} 
+                            palette={PALETTES[selectedPalette].colors}
+                        />
                       </div>
                       
                       {/* Resize Handle */}
