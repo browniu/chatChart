@@ -3,10 +3,13 @@ import { generateChartFromPrompt } from './services/geminiService';
 import { ChartConfig, HistoryItem } from './types';
 import ChartRenderer from './components/ChartRenderer';
 import HistorySidebar from './components/HistorySidebar';
+import SettingsModal from './components/SettingsModal';
+import { ToastProvider, useToast } from './components/Toast';
+import { translations, Language } from './utils/i18n';
 import { 
-  Menu, Send, Image as ImageIcon,
+  Menu, Send, Image as ImageIcon, Download, Copy, Check,
   Loader2, Sparkles, AlertCircle, Sun, Moon, Palette,
-  PanelLeftClose, PanelLeftOpen
+  PanelLeftClose, PanelLeftOpen, Settings, Languages
 } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
 
@@ -22,18 +25,24 @@ const PALETTES = {
   monochrome: { name: 'Mono', colors: ['#1f2937', '#4b5563', '#6b7280', '#9ca3af', '#d1d5db'] }
 };
 
-const App: React.FC = () => {
+const MainContent: React.FC = () => {
   const [prompt, setPrompt] = useState(INITIAL_PROMPT);
   const [loading, setLoading] = useState(false);
   const [currentConfig, setCurrentConfig] = useState<ChartConfig | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [isSidebarOpen, setSidebarOpen] = useState(false); // For Mobile Overlay
-  const [isSidebarVisible, setSidebarVisible] = useState(true); // For Desktop Collapse
+  const [isSidebarOpen, setSidebarOpen] = useState(false); 
+  const [isSidebarVisible, setSidebarVisible] = useState(true); 
   const [editableCode, setEditableCode] = useState("");
   const [codeError, setCodeError] = useState<string | null>(null);
   const [selectedPalette, setSelectedPalette] = useState<keyof typeof PALETTES>('benchmark');
   const [isPaletteMenuOpen, setPaletteMenuOpen] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+  const [lang, setLang] = useState<Language>('zh');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
+  const { showToast } = useToast();
+  const t = translations[lang];
+
   // Theme State
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -122,12 +131,10 @@ const App: React.FC = () => {
     setLoading(true);
     setCodeError(null);
     try {
-      const config = await generateChartFromPrompt(prompt);
+      const config = await generateChartFromPrompt(prompt, lang);
       const code = JSON.stringify(config, null, 2);
       setEditableCode(code);
       setCurrentConfig(config);
-      // Reset palette on new generation to allow AI colors to shine, or keep existing?
-      // Let's use benchmark default to match the new theme
       setSelectedPalette('benchmark');
       
       const newItem: HistoryItem = {
@@ -137,9 +144,10 @@ const App: React.FC = () => {
         config: config
       };
       setHistory(prev => [newItem, ...prev]);
+      showToast(t.toast.genSuccess, 'success');
     } catch (error) {
       console.error(error);
-      alert("Failed to generate chart. Please try again.");
+      showToast(t.toast.genFail, 'error');
     } finally {
       setLoading(false);
     }
@@ -152,11 +160,7 @@ const App: React.FC = () => {
     if (!currentConfig) return;
 
     const colors = PALETTES[paletteKey].colors;
-    
-    // Create a new config object with updated colors
     const newConfig = { ...currentConfig };
-    
-    // Update series colors
     newConfig.series = newConfig.series.map((s, idx) => ({
       ...s,
       color: colors[idx % colors.length]
@@ -175,7 +179,7 @@ const App: React.FC = () => {
   };
 
   const handleClearHistory = () => {
-    if(confirm("Clear all history?")) {
+    if(confirm(lang === 'zh' ? "确认清空所有历史记录？" : "Clear all history?")) {
       setHistory([]);
     }
   };
@@ -192,15 +196,44 @@ const App: React.FC = () => {
       link.download = `chart-${Date.now()}.png`;
       link.href = dataUrl;
       link.click();
+      showToast(t.toast.exportSuccess, 'success');
     } catch (error) {
       console.error('oops, something went wrong!', error);
-      alert("Could not download image");
+      showToast(t.toast.exportFail, 'error');
+    }
+  };
+
+  const handleCopyImage = async () => {
+    if (!chartContainerRef.current) return;
+    try {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const blob = await htmlToImage.toBlob(chartContainerRef.current, {
+          backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
+          pixelRatio: 2
+      });
+      
+      if (!blob) throw new Error("Failed to generate image blob");
+
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          [blob.type]: blob
+        })
+      ]);
+      
+      setIsCopied(true);
+      showToast(t.toast.copySuccess, 'success');
+      setTimeout(() => setIsCopied(false), 2000);
+      
+    } catch (error) {
+      console.error('Copy failed', error);
+      showToast(t.toast.copyFail, 'error');
     }
   };
 
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-950 font-sans text-slate-800 dark:text-slate-100 overflow-hidden transition-colors">
-      {/* Sidebar Overlay for Mobile */}
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} lang={lang} />
+      
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/50 z-10 lg:hidden"
@@ -208,7 +241,6 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Sidebar */}
       <div 
         className={`
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
@@ -226,13 +258,12 @@ const App: React.FC = () => {
             history={history} 
             onSelect={handleHistorySelect}
             onClear={handleClearHistory}
+            lang={lang}
           />
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden w-full">
-        {/* Header */}
         <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-4 flex justify-between items-center shadow-sm z-10 flex-shrink-0 transition-colors">
           <div className="flex items-center gap-3">
             <button 
@@ -254,19 +285,28 @@ const App: React.FC = () => {
                   <Sparkles size={20} fill="white" />
                </div>
                <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-amber-600 dark:from-orange-400 dark:to-amber-500">
-                 ChartGen AI
+                 {t.appTitle}
                </h1>
             </div>
           </div>
           
           <div className="flex gap-2 items-center">
              
+             {/* Language Toggle */}
+             <button
+                onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
+                className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors flex items-center gap-1 font-medium text-sm"
+                title="Switch Language"
+             >
+                <Languages size={18} /> {lang.toUpperCase()}
+             </button>
+
              {/* Palette Selector */}
              <div className="relative">
                 <button 
                   onClick={() => setPaletteMenuOpen(!isPaletteMenuOpen)}
                   className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors flex items-center gap-2"
-                  title="Change Color Theme"
+                  title={t.theme}
                 >
                   <Palette size={20} />
                   <span className="hidden sm:inline text-sm font-medium">{PALETTES[selectedPalette].name}</span>
@@ -303,58 +343,73 @@ const App: React.FC = () => {
              <button
                 onClick={() => setIsDarkMode(!isDarkMode)}
                 className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors"
-                title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                title={isDarkMode ? t.lightMode : t.darkMode}
               >
                 {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+             </button>
+             
+             <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors"
+                title={t.settings}
+              >
+                <Settings size={20} />
              </button>
 
             {currentConfig && (
                  <div className="flex gap-1 ml-2">
-                    <button onClick={handleDownloadImage} title="Download PNG" className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded-lg transition-colors border border-gray-200 dark:border-gray-700">
-                      <ImageIcon size={16} /> <span className="hidden sm:inline">PNG</span>
+                    <button 
+                      onClick={handleDownloadImage} 
+                      title={t.export} 
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded-lg transition-colors border border-gray-200 dark:border-gray-700"
+                    >
+                      <Download size={16} /> <span className="hidden sm:inline">{t.export}</span>
+                    </button>
+                    <button 
+                      onClick={handleCopyImage} 
+                      title={t.copy} 
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded-lg transition-colors border border-gray-200 dark:border-gray-700"
+                    >
+                      {isCopied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />} 
+                      <span className="hidden sm:inline">{isCopied ? t.copied : t.copy}</span>
                     </button>
                  </div>
                )}
           </div>
         </header>
 
-        {/* Workspace */}
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
           
-          {/* Left Panel: Input & Source (40%) */}
           <div className="w-full lg:w-[40%] flex flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 transition-colors">
-            
-            {/* Input Area */}
             <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0 transition-colors">
                <div className="relative">
                 <textarea
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="Describe your chart..."
+                  placeholder={t.describePlaceholder}
                   className="w-full h-24 p-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none resize-none text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 text-sm shadow-sm transition-colors placeholder-gray-400 dark:placeholder-gray-500"
                 />
                 <button
                   onClick={handleGenerate}
                   disabled={loading || !prompt.trim()}
                   className="absolute bottom-3 right-3 p-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 transition-colors shadow-sm"
-                  title="Generate"
+                  title={t.generate}
                 >
                   {loading ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
                 </button>
                </div>
             </div>
 
-            {/* Code Editor */}
             <div className={`flex-1 flex flex-col min-h-0 transition-colors ${isDarkMode ? 'bg-[#0d1117]' : 'bg-gray-50'}`}>
                <div className={`
                   px-4 py-2 text-xs font-mono border-b flex justify-between items-center transition-colors
                   ${isDarkMode ? 'bg-[#161b22] text-gray-400 border-gray-800' : 'bg-white text-gray-500 border-gray-200'}
                `}>
-                  <span>SOURCE CODE (JSON)</span>
+                  <span>{t.sourceCode}</span>
                   {codeError ? (
-                    <span className="text-red-400 flex items-center gap-1"><AlertCircle size={12}/> Invalid JSON</span>
+                    <span className="text-red-400 flex items-center gap-1"><AlertCircle size={12}/> {t.invalidJson}</span>
                   ) : (
-                    <span className="text-green-600 dark:text-green-500">Live Editing</span>
+                    <span className="text-green-600 dark:text-green-500">{t.liveEditing}</span>
                   )}
                </div>
                <textarea 
@@ -372,13 +427,12 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Panel: Preview (60%) */}
           <div className="w-full lg:w-[60%] bg-slate-100 dark:bg-black relative flex flex-col overflow-hidden transition-colors">
              
              {loading && (
                  <div className="absolute inset-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm flex flex-col items-center justify-center">
                     <Loader2 className="animate-spin text-orange-600 dark:text-orange-400 mb-4" size={40} />
-                    <p className="text-gray-600 dark:text-gray-300 font-medium animate-pulse">Designing Chart...</p>
+                    <p className="text-gray-600 dark:text-gray-300 font-medium animate-pulse">{t.designing}</p>
                  </div>
              )}
 
@@ -403,7 +457,6 @@ const App: React.FC = () => {
                         />
                       </div>
                       
-                      {/* Resize Handle */}
                       <div 
                         onMouseDown={handleMouseDown}
                         className="absolute bottom-0 left-0 right-0 h-4 cursor-row-resize flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-opacity"
@@ -417,8 +470,8 @@ const App: React.FC = () => {
                     <div className="w-20 h-20 bg-gray-200 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6 transition-colors">
                       <Sparkles size={40} className="text-gray-400 dark:text-gray-600" />
                     </div>
-                    <h3 className="text-xl font-medium text-gray-600 dark:text-gray-400">Chart Preview</h3>
-                    <p className="max-w-xs mx-auto mt-2 text-gray-500 dark:text-gray-500">Generated visualizations will appear here automatically.</p>
+                    <h3 className="text-xl font-medium text-gray-600 dark:text-gray-400">{t.preview}</h3>
+                    <p className="max-w-xs mx-auto mt-2 text-gray-500 dark:text-gray-500">{t.previewHint}</p>
                   </div>
                 )}
              </div>
@@ -427,6 +480,14 @@ const App: React.FC = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <ToastProvider>
+      <MainContent />
+    </ToastProvider>
   );
 };
 

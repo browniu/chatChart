@@ -1,7 +1,5 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { ChartConfig, ChartType } from "../types";
-
-const apiKey = process.env.API_KEY;
+import { ChartConfig } from "../types";
 
 // Define the response schema for strict JSON generation
 const chartSchema: Schema = {
@@ -52,12 +50,31 @@ const chartSchema: Schema = {
   required: ["title", "chartType", "xAxisKey", "data", "series"]
 };
 
-export const generateChartFromPrompt = async (prompt: string): Promise<ChartConfig> => {
+export const generateChartFromPrompt = async (prompt: string, language: 'zh' | 'en' = 'zh'): Promise<ChartConfig> => {
+  // Check for custom configuration in localStorage
+  const customApiKey = localStorage.getItem('customApiKey');
+  const customBaseUrl = localStorage.getItem('customBaseUrl');
+  
+  const apiKey = customApiKey || process.env.API_KEY;
+
   if (!apiKey) {
-    throw new Error("API Key is missing. Please check your environment configuration.");
+    throw new Error("API Key is missing. Please check your settings or environment configuration.");
   }
 
-  const ai = new GoogleGenAI({ apiKey });
+  // Initialize client with optional custom base URL
+  // Note: The SDK constructor accepts options which can include baseUrl depending on version,
+  // or we rely on the default behavior if not provided.
+  // For @google/genai, the options object is the first argument.
+  const clientOptions: any = { apiKey };
+  if (customBaseUrl) {
+    clientOptions.baseUrl = customBaseUrl;
+  }
+
+  const ai = new GoogleGenAI(clientOptions);
+
+  const langInstruction = language === 'en' 
+    ? "YOU MUST USE ENGLISH for all text fields." 
+    : "YOU MUST USE CHINESE (Simplified) for all text fields unless explicitly requested otherwise.";
 
   // We use gemini-2.5-flash for speed and good instruction following for JSON
   const response = await ai.models.generateContent({
@@ -71,6 +88,7 @@ export const generateChartFromPrompt = async (prompt: string): Promise<ChartConf
     4. Set 'xAxisKey' to the EXACT key name you used for the labels in the data objects.
     5. Define 'series' to map data keys (like 'value', 'sales') to visual elements.
     6. Use modern, professional hex colors.
+    7. LANGUAGE RULE: ${langInstruction}
     `,
     config: {
       responseMimeType: "application/json",
