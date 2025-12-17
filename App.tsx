@@ -14,7 +14,8 @@ const INITIAL_PROMPT = "2025年Q1-Q4问题解决率趋势图，曲线在Q3触底
 
 // Predefined Palettes
 const PALETTES = {
-  default: { name: 'Default', colors: ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"] },
+  benchmark: { name: 'Benchmark', colors: ['#F97316', '#64748B', '#94A3B8', '#CBD5E1', '#E2E8F0', '#F1F5F9'] },
+  default: { name: 'Rainbow', colors: ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"] },
   ocean: { name: 'Ocean', colors: ['#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7'] },
   sunset: { name: 'Sunset', colors: ['#f97316', '#ef4444', '#e11d48', '#be123c', '#881337'] },
   forest: { name: 'Forest', colors: ['#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4'] },
@@ -30,7 +31,7 @@ const App: React.FC = () => {
   const [isSidebarVisible, setSidebarVisible] = useState(true); // For Desktop Collapse
   const [editableCode, setEditableCode] = useState("");
   const [codeError, setCodeError] = useState<string | null>(null);
-  const [selectedPalette, setSelectedPalette] = useState<keyof typeof PALETTES>('default');
+  const [selectedPalette, setSelectedPalette] = useState<keyof typeof PALETTES>('benchmark');
   const [isPaletteMenuOpen, setPaletteMenuOpen] = useState(false);
   
   // Theme State
@@ -126,8 +127,8 @@ const App: React.FC = () => {
       setEditableCode(code);
       setCurrentConfig(config);
       // Reset palette on new generation to allow AI colors to shine, or keep existing?
-      // Let's reset to default to see what AI produced.
-      setSelectedPalette('default');
+      // Let's use benchmark default to match the new theme
+      setSelectedPalette('benchmark');
       
       const newItem: HistoryItem = {
         id: Date.now().toString(),
@@ -242,17 +243,17 @@ const App: React.FC = () => {
             </button>
             <button
                onClick={() => setSidebarVisible(!isSidebarVisible)}
-               className="hidden lg:block p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+               className="hidden lg:block p-2 text-gray-500 hover:text-orange-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                title={isSidebarVisible ? "Collapse Sidebar" : "Expand Sidebar"}
             >
                {isSidebarVisible ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
             </button>
 
             <div className="flex items-center gap-2">
-               <div className="bg-blue-600 p-2 rounded-lg text-white shadow-lg shadow-blue-500/30">
+               <div className="bg-orange-500 p-2 rounded-lg text-white shadow-lg shadow-orange-500/30">
                   <Sparkles size={20} fill="white" />
                </div>
-               <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">
+               <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-amber-600 dark:from-orange-400 dark:to-amber-500">
                  ChartGen AI
                </h1>
             </div>
@@ -278,7 +279,7 @@ const App: React.FC = () => {
                         key={key}
                         onClick={() => handleApplyPalette(key as keyof typeof PALETTES)}
                         className={`w-full text-left px-4 py-3 text-sm flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors
-                          ${selectedPalette === key ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-gray-700/50' : 'text-gray-700 dark:text-gray-300'}
+                          ${selectedPalette === key ? 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-gray-700/50' : 'text-gray-700 dark:text-gray-300'}
                         `}
                       >
                          <div className="flex gap-1">
@@ -309,7 +310,7 @@ const App: React.FC = () => {
 
             {currentConfig && (
                  <div className="flex gap-1 ml-2">
-                    <button onClick={handleDownloadImage} title="Download PNG" className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors border border-gray-200 dark:border-gray-700">
+                    <button onClick={handleDownloadImage} title="Download PNG" className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded-lg transition-colors border border-gray-200 dark:border-gray-700">
                       <ImageIcon size={16} /> <span className="hidden sm:inline">PNG</span>
                     </button>
                  </div>
@@ -330,12 +331,12 @@ const App: React.FC = () => {
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   placeholder="Describe your chart..."
-                  className="w-full h-24 p-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 text-sm shadow-sm transition-colors placeholder-gray-400 dark:placeholder-gray-500"
+                  className="w-full h-24 p-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none resize-none text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 text-sm shadow-sm transition-colors placeholder-gray-400 dark:placeholder-gray-500"
                 />
                 <button
                   onClick={handleGenerate}
                   disabled={loading || !prompt.trim()}
-                  className="absolute bottom-3 right-3 p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 transition-colors shadow-sm"
+                  className="absolute bottom-3 right-3 p-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 transition-colors shadow-sm"
                   title="Generate"
                 >
                   {loading ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
@@ -353,15 +354,15 @@ const App: React.FC = () => {
                   {codeError ? (
                     <span className="text-red-400 flex items-center gap-1"><AlertCircle size={12}/> Invalid JSON</span>
                   ) : (
-                    <span className="text-green-500 dark:text-green-500 text-green-600">Live Editing</span>
+                    <span className="text-green-600 dark:text-green-500">Live Editing</span>
                   )}
                </div>
                <textarea 
                   className={`
                     flex-1 w-full font-mono text-xs sm:text-sm p-4 outline-none resize-none leading-relaxed transition-colors
                     ${isDarkMode 
-                      ? 'bg-[#0d1117] text-blue-300' 
-                      : 'bg-white text-blue-700'}
+                      ? 'bg-[#0d1117] text-orange-200' 
+                      : 'bg-white text-orange-800'}
                   `}
                   value={editableCode}
                   onChange={(e) => setEditableCode(e.target.value)}
@@ -376,7 +377,7 @@ const App: React.FC = () => {
              
              {loading && (
                  <div className="absolute inset-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm flex flex-col items-center justify-center">
-                    <Loader2 className="animate-spin text-blue-600 dark:text-blue-400 mb-4" size={40} />
+                    <Loader2 className="animate-spin text-orange-600 dark:text-orange-400 mb-4" size={40} />
                     <p className="text-gray-600 dark:text-gray-300 font-medium animate-pulse">Designing Chart...</p>
                  </div>
              )}
@@ -388,9 +389,9 @@ const App: React.FC = () => {
                     style={{ height: chartHeight }}
                   >
                       <div className="p-6 text-center border-b border-gray-50 dark:border-gray-700 bg-white dark:bg-gray-800 transition-colors">
-                        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{currentConfig.title}</h2>
+                        <h2 className="text-3xl font-serif font-bold text-gray-900 dark:text-gray-100 mb-1">{currentConfig.title}</h2>
                         {currentConfig.description && (
-                          <p className="text-gray-500 dark:text-gray-400 mt-2 text-sm max-w-2xl mx-auto">{currentConfig.description}</p>
+                          <p className="text-gray-500 dark:text-gray-400 mt-2 text-sm max-w-2xl mx-auto font-sans">{currentConfig.description}</p>
                         )}
                       </div>
                       <div className="flex-1 w-full min-h-0 p-4 bg-white dark:bg-gray-800 transition-colors" id="chart-capture-target">

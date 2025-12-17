@@ -38,14 +38,14 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, onSelect, onCl
             <div 
               key={item.id}
               onClick={() => onSelect(item)}
-              className="p-3 rounded-lg border border-gray-100 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-gray-800 cursor-pointer transition-colors group bg-white dark:bg-gray-900"
+              className="p-3 rounded-lg border border-gray-100 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-gray-800 cursor-pointer transition-colors group bg-white dark:bg-gray-900"
             >
               <div className="flex justify-between items-start mb-1">
-                 <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">{item.config.chartType}</span>
+                 <span className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider">{item.config.chartType}</span>
                  <span className="text-xs text-gray-400">{new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
               </div>
               <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2 font-medium">{item.prompt}</p>
-              <div className="mt-2 flex items-center text-xs text-gray-500 gap-1 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+              <div className="mt-2 flex items-center text-xs text-gray-500 gap-1 group-hover:text-orange-600 dark:group-hover:text-orange-400">
                 View Chart <ChevronRight size={12} />
               </div>
             </div>
