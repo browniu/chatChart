@@ -10,23 +10,15 @@ interface SettingsModalProps {
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, lang }) => {
   const t = translations[lang];
-  const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
 
   useEffect(() => {
     if (isOpen) {
-      setApiKey(localStorage.getItem('customApiKey') || '');
       setBaseUrl(localStorage.getItem('customBaseUrl') || '');
     }
   }, [isOpen]);
 
   const handleSave = () => {
-    if (apiKey.trim()) {
-      localStorage.setItem('customApiKey', apiKey.trim());
-    } else {
-      localStorage.removeItem('customApiKey');
-    }
-
     if (baseUrl.trim()) {
       localStorage.setItem('customBaseUrl', baseUrl.trim());
     } else {
@@ -36,9 +28,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, lang }) 
   };
 
   const handleClear = () => {
-    setApiKey('');
     setBaseUrl('');
-    localStorage.removeItem('customApiKey');
     localStorage.removeItem('customBaseUrl');
     onClose();
   };
@@ -56,16 +46,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, lang }) 
         </div>
         
         <div className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.apiKey}</label>
-            <input 
-              type="password" 
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-..."
-              className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-orange-500 outline-none text-sm"
-            />
-          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.baseUrl}</label>
             <input 

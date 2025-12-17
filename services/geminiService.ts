@@ -9,16 +9,22 @@ const chartSchema: Schema = {
     description: { type: Type.STRING, description: "A brief explanation of the data context" },
     chartType: { 
       type: Type.STRING, 
-      enum: ["line", "bar", "area", "pie", "composed"],
-      description: "The best type of chart to visualize this data"
+      enum: ["line", "bar", "area", "pie", "composed", "mermaid"],
+      description: "The best type of chart. Use 'mermaid' for flowcharts, diagrams, sequence diagrams, architectures, or process maps. Use others for statistical data."
     },
-    xAxisKey: { type: Type.STRING, description: "The key in the data objects to use for X-axis labels. MUST match a key in the data items." },
+    // Mermaid specific
+    mermaidCode: {
+      type: Type.STRING,
+      description: "The Mermaid.js code string. ONLY required if chartType is 'mermaid'. Do NOT use markdown code blocks, just the raw string. Use 'graph TD' or 'graph LR' for flowcharts."
+    },
+    // Recharts specific (nullable/optional in logic)
+    xAxisKey: { type: Type.STRING, description: "The key for X-axis labels (Required for statistical charts, empty for mermaid)", nullable: true },
     data: {
       type: Type.ARRAY,
-      description: "The actual data points for the chart",
+      nullable: true,
+      description: "Data points (Required for statistical charts, empty for mermaid)",
       items: {
         type: Type.OBJECT,
-        description: "A data point object.",
         properties: {
           name: { type: Type.STRING },
           quarter: { type: Type.STRING },
@@ -34,37 +40,34 @@ const chartSchema: Schema = {
     },
     series: {
       type: Type.ARRAY,
-      description: "Configuration for each data series to plot",
+      nullable: true,
+      description: "Series config (Required for statistical charts, empty for mermaid)",
       items: {
         type: Type.OBJECT,
         properties: {
-          dataKey: { type: Type.STRING, description: "The key in the data object to plot (e.g., 'value', 'sales')" },
-          name: { type: Type.STRING, description: "Human readable name for the legend" },
-          color: { type: Type.STRING, description: "Hex color code for this series" },
-          type: { type: Type.STRING, enum: ["monotone", "linear", "step"], description: "Line interpolation style" }
+          dataKey: { type: Type.STRING },
+          name: { type: Type.STRING },
+          color: { type: Type.STRING },
+          type: { type: Type.STRING, enum: ["monotone", "linear", "step"] }
         },
         required: ["dataKey", "color"]
       }
     }
   },
-  required: ["title", "chartType", "xAxisKey", "data", "series"]
+  required: ["title", "chartType"]
 };
 
 export const generateChartFromPrompt = async (prompt: string, language: 'zh' | 'en' = 'zh'): Promise<ChartConfig> => {
   // Check for custom configuration in localStorage
-  const customApiKey = localStorage.getItem('customApiKey');
   const customBaseUrl = localStorage.getItem('customBaseUrl');
   
-  const apiKey = customApiKey || process.env.API_KEY;
+  // API key must be obtained exclusively from the environment variable process.env.API_KEY
+  const apiKey = process.env.API_KEY;
 
   if (!apiKey) {
     throw new Error("API Key is missing. Please check your settings or environment configuration.");
   }
 
-  // Initialize client with optional custom base URL
-  // Note: The SDK constructor accepts options which can include baseUrl depending on version,
-  // or we rely on the default behavior if not provided.
-  // For @google/genai, the options object is the first argument.
   const clientOptions: any = { apiKey };
   if (customBaseUrl) {
     clientOptions.baseUrl = customBaseUrl;
@@ -79,21 +82,32 @@ export const generateChartFromPrompt = async (prompt: string, language: 'zh' | '
   // We use gemini-2.5-flash for speed and good instruction following for JSON
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
-    contents: `Generate a JSON configuration to render a chart based on this request: "${prompt}".
+    contents: `Generate a JSON configuration to render a visualization based on this request: "${prompt}".
     
     Guidelines:
-    1. Analyze the text to extract data points. infer reasonable numbers if not explicit.
-    2. Choose the best chart type (Line, Bar, Area, Pie).
-    3. Construct the 'data' array. You MUST use one of these keys for the x-axis label: 'name', 'quarter', 'month', 'year', 'label'.
-    4. Set 'xAxisKey' to the EXACT key name you used for the labels in the data objects.
-    5. Define 'series' to map data keys (like 'value', 'sales') to visual elements.
-    6. Use modern, professional hex colors.
-    7. LANGUAGE RULE: ${langInstruction}
+    1. Determine if the user wants a Statistical Chart (numbers, trends) or a Diagram (processes, architectures, relationships).
+    
+    [IF STATISTICAL CHART]:
+    - Set 'chartType' to line, bar, area, pie, or composed.
+    - Construct 'data' and 'series'.
+    - Set 'mermaidCode' to empty string.
+    
+    [IF DIAGRAM/FLOWCHART]:
+    - Set 'chartType' to 'mermaid'.
+    - Generate valid Mermaid.js syntax in 'mermaidCode'.
+    - Use 'graph TD' (top-down) or 'graph LR' (left-right) as appropriate.
+    - Use subgraphs for clusters if needed.
+    - Use professional node labels (e.g., [SFT Model] instead of A).
+    - Styling: Keep it simple, the app handles colors.
+    - Set 'data' and 'series' to empty arrays or null.
+
+    General:
+    - Language Rule: ${langInstruction}
     `,
     config: {
       responseMimeType: "application/json",
       responseSchema: chartSchema,
-      temperature: 0.4,
+      temperature: 0.3, // Lower temperature for more stable code generation
     },
   });
 

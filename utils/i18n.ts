@@ -29,6 +29,13 @@ export const translations = {
     save: "保存",
     cancel: "取消",
     useDefault: "使用默认",
+    mermaid: {
+      config: "配置信息",
+      title: "标题",
+      description: "描述",
+      code: "Mermaid 流程图代码",
+      codePlaceholder: "输入 Mermaid 语法..."
+    },
     toast: {
       copySuccess: "图片已复制到剪贴板",
       copyFail: "复制失败",
@@ -66,6 +73,13 @@ export const translations = {
     save: "Save",
     cancel: "Cancel",
     useDefault: "Use Default",
+    mermaid: {
+      config: "Configuration",
+      title: "Title",
+      description: "Description",
+      code: "Mermaid Code",
+      codePlaceholder: "Enter Mermaid syntax..."
+    },
     toast: {
       copySuccess: "Image copied to clipboard",
       copyFail: "Failed to copy",

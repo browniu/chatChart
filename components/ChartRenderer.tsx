@@ -4,6 +4,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, ComposedChart
 } from 'recharts';
 import { ChartConfig, ChartType } from '../types';
+import MermaidRenderer from './MermaidRenderer';
 
 interface ChartRendererProps {
   config: ChartConfig;
@@ -13,7 +14,7 @@ interface ChartRendererProps {
 }
 
 const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkMode, palette }) => {
-  const { chartType, data, xAxisKey, series } = config;
+  const { chartType, data, xAxisKey, series, mermaidCode } = config;
 
   const textColor = isDarkMode ? "#e2e8f0" : "#374151";
   const gridColor = isDarkMode ? "#374151" : "#e5e7eb";
@@ -28,6 +29,28 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkM
   // Default colorful palette if none provided
   const defaultPalette = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"];
   const activePalette = palette && palette.length > 0 ? palette : defaultPalette;
+
+  // Render Mermaid Diagram
+  if (chartType === ChartType.Mermaid) {
+    return (
+      <div ref={chartRef} className={`w-full h-full min-h-[300px] rounded-lg p-4 transition-colors ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+         {mermaidCode ? (
+            <MermaidRenderer code={mermaidCode} isDarkMode={isDarkMode} />
+         ) : (
+            <div className="flex items-center justify-center h-full text-gray-500">No Mermaid code generated.</div>
+         )}
+      </div>
+    );
+  }
+
+  // Safety check for Recharts
+  if (!data || !series || !xAxisKey) {
+    return (
+      <div className="flex items-center justify-center h-full text-gray-500">
+        Incomplete data for chart rendering.
+      </div>
+    );
+  }
 
   const renderChart = () => {
     switch (chartType) {

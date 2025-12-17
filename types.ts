@@ -3,7 +3,8 @@ export enum ChartType {
   Bar = 'bar',
   Area = 'area',
   Pie = 'pie',
-  Composed = 'composed'
+  Composed = 'composed',
+  Mermaid = 'mermaid'
 }
 
 export interface ChartSeries {
@@ -17,9 +18,10 @@ export interface ChartConfig {
   title: string;
   description?: string;
   chartType: ChartType;
-  xAxisKey: string; // The key in data objects to use for X axis labels
-  data: Record<string, string | number>[];
-  series: ChartSeries[];
+  xAxisKey?: string; // Optional for Mermaid
+  data?: Record<string, string | number>[]; // Optional for Mermaid
+  series?: ChartSeries[]; // Optional for Mermaid
+  mermaidCode?: string; // Specific for Mermaid type
 }
 
 export interface HistoryItem {

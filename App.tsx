@@ -4,16 +4,19 @@ import { ChartConfig, HistoryItem } from './types';
 import ChartRenderer from './components/ChartRenderer';
 import HistorySidebar from './components/HistorySidebar';
 import SettingsModal from './components/SettingsModal';
+import MermaidEditor from './components/MermaidEditor';
 import { ToastProvider, useToast } from './components/Toast';
 import { translations, Language } from './utils/i18n';
 import { 
   Menu, Send, Image as ImageIcon, Download, Copy, Check,
   Loader2, Sparkles, AlertCircle, Sun, Moon, Palette,
-  PanelLeftClose, PanelLeftOpen, Settings, Languages
+  PanelLeftClose, PanelLeftOpen, Settings, Languages,
+  Workflow, BarChart3, Code as CodeIcon
 } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
 
 const INITIAL_PROMPT = "2025年Q1-Q4问题解决率趋势图，曲线在Q3触底后于Q4强劲反弹，突破70%";
+const FLOWCHART_PROMPT = "绘制一个机器学习训练流程图：从SFT数据开始，经过SFT模型，进入'Domain Teachers'训练阶段，通过Token级奖励和序列级奖励反馈给模型，形成闭环优化。使用子图区分不同阶段。";
 
 // Predefined Palettes
 const PALETTES = {
@@ -29,6 +32,8 @@ const MainContent: React.FC = () => {
   const [prompt, setPrompt] = useState(INITIAL_PROMPT);
   const [loading, setLoading] = useState(false);
   const [currentConfig, setCurrentConfig] = useState<ChartConfig | null>(null);
+  // unique ID for the current config session to reset editor state
+  const [currentId, setCurrentId] = useState<string>(Date.now().toString()); 
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isSidebarOpen, setSidebarOpen] = useState(false); 
   const [isSidebarVisible, setSidebarVisible] = useState(true); 
@@ -93,7 +98,8 @@ const MainContent: React.FC = () => {
       try {
         const parsed = JSON.parse(editableCode);
         if (parsed && typeof parsed === 'object') {
-           if(parsed.chartType && Array.isArray(parsed.data)) {
+           // We accept if it has chartType
+           if(parsed.chartType) {
              setCurrentConfig(parsed);
              setCodeError(null);
            }
@@ -135,6 +141,7 @@ const MainContent: React.FC = () => {
       const code = JSON.stringify(config, null, 2);
       setEditableCode(code);
       setCurrentConfig(config);
+      setCurrentId(Date.now().toString()); // New session
       setSelectedPalette('benchmark');
       
       const newItem: HistoryItem = {
@@ -157,17 +164,18 @@ const MainContent: React.FC = () => {
     setSelectedPalette(paletteKey);
     setPaletteMenuOpen(false);
 
-    if (!currentConfig) return;
+    if (!currentConfig || currentConfig.chartType === 'mermaid') return;
 
     const colors = PALETTES[paletteKey].colors;
     const newConfig = { ...currentConfig };
-    newConfig.series = newConfig.series.map((s, idx) => ({
-      ...s,
-      color: colors[idx % colors.length]
-    }));
-
-    setCurrentConfig(newConfig);
-    setEditableCode(JSON.stringify(newConfig, null, 2));
+    if (newConfig.series) {
+        newConfig.series = newConfig.series.map((s, idx) => ({
+        ...s,
+        color: colors[idx % colors.length]
+        }));
+        setCurrentConfig(newConfig);
+        setEditableCode(JSON.stringify(newConfig, null, 2));
+    }
   };
 
   const handleHistorySelect = (item: HistoryItem) => {
@@ -175,6 +183,7 @@ const MainContent: React.FC = () => {
     const code = JSON.stringify(item.config, null, 2);
     setEditableCode(code);
     setCurrentConfig(item.config);
+    setCurrentId(item.id); // Sync ID
     setSidebarOpen(false);
   };
 
@@ -184,21 +193,60 @@ const MainContent: React.FC = () => {
     }
   };
 
+  // Callback from MermaidEditor
+  const handleMermaidUpdate = (newConfig: ChartConfig) => {
+     setEditableCode(JSON.stringify(newConfig, null, 2));
+     // We do NOT set currentConfig directly here, relying on the useEffect debounce
+     // of editableCode to do it, which prevents re-render loop issues with input cursor.
+     // However, the MermaidEditor uses internal state for the inputs, so it doesn't flicker.
+  };
+
   const handleDownloadImage = async () => {
     if (!chartContainerRef.current) return;
     try {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      const dataUrl = await htmlToImage.toPng(chartContainerRef.current, { 
-          backgroundColor: isDarkMode ? '#1f2937' : '#ffffff', 
-          pixelRatio: 2 
-      });
-      const link = document.createElement('a');
-      link.download = `chart-${Date.now()}.png`;
-      link.href = dataUrl;
-      link.click();
-      showToast(t.toast.exportSuccess, 'success');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const svgElement = chartContainerRef.current.querySelector('svg');
+      let dataUrl = '';
+
+      if (currentConfig?.chartType === 'mermaid' && svgElement) {
+         const serializer = new XMLSerializer();
+         const source = serializer.serializeToString(svgElement);
+         const svgBlob = new Blob([source], {type:"image/svg+xml;charset=utf-8"});
+         const url = URL.createObjectURL(svgBlob);
+         
+         const img = new Image();
+         img.src = url;
+         await new Promise((resolve) => (img.onload = resolve));
+         const canvas = document.createElement('canvas');
+         canvas.width = img.width * 2; 
+         canvas.height = img.height * 2;
+         const ctx = canvas.getContext('2d');
+         if(ctx) {
+            ctx.fillStyle = isDarkMode ? '#1f2937' : '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            dataUrl = canvas.toDataURL("image/png");
+         }
+         URL.revokeObjectURL(url);
+      } else {
+         dataUrl = await htmlToImage.toPng(chartContainerRef.current, { 
+            backgroundColor: isDarkMode ? '#1f2937' : '#ffffff', 
+            pixelRatio: 2 
+        });
+      }
+
+      if(dataUrl) {
+        const link = document.createElement('a');
+        link.download = `chart-${Date.now()}.png`;
+        link.href = dataUrl;
+        link.click();
+        showToast(t.toast.exportSuccess, 'success');
+      } else {
+        throw new Error("No image data");
+      }
     } catch (error) {
-      console.error('oops, something went wrong!', error);
+      console.error('Export failed', error);
       showToast(t.toast.exportFail, 'error');
     }
   };
@@ -206,7 +254,7 @@ const MainContent: React.FC = () => {
   const handleCopyImage = async () => {
     if (!chartContainerRef.current) return;
     try {
-      await new Promise(resolve => setTimeout(resolve, 100));
+       await new Promise(resolve => setTimeout(resolve, 500));
       const blob = await htmlToImage.toBlob(chartContainerRef.current, {
           backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
           pixelRatio: 2
@@ -229,6 +277,8 @@ const MainContent: React.FC = () => {
       showToast(t.toast.copyFail, 'error');
     }
   };
+
+  const isMermaid = currentConfig?.chartType === 'mermaid';
 
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-950 font-sans text-slate-800 dark:text-slate-100 overflow-hidden transition-colors">
@@ -291,8 +341,6 @@ const MainContent: React.FC = () => {
           </div>
           
           <div className="flex gap-2 items-center">
-             
-             {/* Language Toggle */}
              <button
                 onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
                 className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors flex items-center gap-1 font-medium text-sm"
@@ -301,7 +349,6 @@ const MainContent: React.FC = () => {
                 <Languages size={18} /> {lang.toUpperCase()}
              </button>
 
-             {/* Palette Selector */}
              <div className="relative">
                 <button 
                   onClick={() => setPaletteMenuOpen(!isPaletteMenuOpen)}
@@ -382,6 +429,20 @@ const MainContent: React.FC = () => {
           
           <div className="w-full lg:w-[40%] flex flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 transition-colors">
             <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0 transition-colors">
+               <div className="flex gap-2 mb-2">
+                 <button 
+                    onClick={() => setPrompt(INITIAL_PROMPT)}
+                    className="text-xs flex items-center gap-1 px-2 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300 transition-colors"
+                 >
+                    <BarChart3 size={12}/> Data Chart Example
+                 </button>
+                 <button 
+                    onClick={() => setPrompt(FLOWCHART_PROMPT)}
+                    className="text-xs flex items-center gap-1 px-2 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300 transition-colors"
+                 >
+                    <Workflow size={12}/> Flowchart Example
+                 </button>
+               </div>
                <div className="relative">
                 <textarea
                   value={prompt}
@@ -401,29 +462,44 @@ const MainContent: React.FC = () => {
             </div>
 
             <div className={`flex-1 flex flex-col min-h-0 transition-colors ${isDarkMode ? 'bg-[#0d1117]' : 'bg-gray-50'}`}>
-               <div className={`
-                  px-4 py-2 text-xs font-mono border-b flex justify-between items-center transition-colors
-                  ${isDarkMode ? 'bg-[#161b22] text-gray-400 border-gray-800' : 'bg-white text-gray-500 border-gray-200'}
-               `}>
-                  <span>{t.sourceCode}</span>
-                  {codeError ? (
-                    <span className="text-red-400 flex items-center gap-1"><AlertCircle size={12}/> {t.invalidJson}</span>
-                  ) : (
-                    <span className="text-green-600 dark:text-green-500">{t.liveEditing}</span>
-                  )}
-               </div>
-               <textarea 
-                  className={`
-                    flex-1 w-full font-mono text-xs sm:text-sm p-4 outline-none resize-none leading-relaxed transition-colors
-                    ${isDarkMode 
-                      ? 'bg-[#0d1117] text-orange-200' 
-                      : 'bg-white text-orange-800'}
-                  `}
-                  value={editableCode}
-                  onChange={(e) => setEditableCode(e.target.value)}
-                  spellCheck={false}
-                  placeholder="// Chart configuration will appear here..."
-                />
+               {isMermaid && currentConfig ? (
+                  <MermaidEditor 
+                    key={currentId} // Reset editor state on new chart
+                    config={currentConfig}
+                    onUpdate={handleMermaidUpdate}
+                    lang={lang}
+                    isDarkMode={isDarkMode}
+                  />
+               ) : (
+                  <>
+                    <div className={`
+                        px-4 py-2 text-xs font-mono border-b flex justify-between items-center transition-colors
+                        ${isDarkMode ? 'bg-[#161b22] text-gray-400 border-gray-800' : 'bg-white text-gray-500 border-gray-200'}
+                    `}>
+                        <div className="flex items-center gap-2">
+                           <CodeIcon size={14} />
+                           <span>{t.sourceCode}</span>
+                        </div>
+                        {codeError ? (
+                          <span className="text-red-400 flex items-center gap-1"><AlertCircle size={12}/> {t.invalidJson}</span>
+                        ) : (
+                          <span className="text-green-600 dark:text-green-500">{t.liveEditing}</span>
+                        )}
+                    </div>
+                    <textarea 
+                        className={`
+                          flex-1 w-full font-mono text-xs sm:text-sm p-4 outline-none resize-none leading-relaxed transition-colors
+                          ${isDarkMode 
+                            ? 'bg-[#0d1117] text-orange-200' 
+                            : 'bg-white text-orange-800'}
+                        `}
+                        value={editableCode}
+                        onChange={(e) => setEditableCode(e.target.value)}
+                        spellCheck={false}
+                        placeholder="// Chart configuration will appear here..."
+                      />
+                  </>
+               )}
             </div>
           </div>
 
