@@ -231,9 +231,26 @@ const MainContent: React.FC = () => {
       } else if (modelProvider === 'openai') {
         // 获取 OpenAI 兼容平台的配置
         const openaiPlatform = (localStorage.getItem('openaiPlatform') || 'xiaomi') as OpenAIPlatformKey;
-        const openaiApiKey = localStorage.getItem('openaiApiKey') || '';
-        const openaiBaseUrl = localStorage.getItem('openaiBaseUrl') || OPENAI_COMPATIBLE_PLATFORMS[openaiPlatform].defaultBaseUrl;
-        const openaiModel = localStorage.getItem('openaiModel') || OPENAI_COMPATIBLE_PLATFORMS[openaiPlatform].defaultModel;
+        
+        // 从新的存储结构中读取配置
+        let openaiApiKey = '';
+        let openaiBaseUrl = OPENAI_COMPATIBLE_PLATFORMS[openaiPlatform].defaultBaseUrl;
+        let openaiModel = OPENAI_COMPATIBLE_PLATFORMS[openaiPlatform].defaultModel;
+        
+        try {
+          const configsStr = localStorage.getItem('openaiConfigs');
+          if (configsStr) {
+            const configs = JSON.parse(configsStr);
+            const platformConfig = configs[openaiPlatform];
+            if (platformConfig) {
+              openaiApiKey = platformConfig.apiKey || '';
+              openaiBaseUrl = platformConfig.baseUrl || openaiBaseUrl;
+              openaiModel = platformConfig.model || openaiModel;
+            }
+          }
+        } catch (e) {
+          console.error('Failed to load openai configs', e);
+        }
         
         config = await generateChartFromOpenAI(finalPrompt, genMode, lang, {
           apiKey: openaiApiKey,

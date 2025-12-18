@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, RotateCcw } from 'lucide-react';
+import { X, Save, RotateCcw, CheckCircle } from 'lucide-react';
 import { translations, Language } from '../utils/i18n';
 import { OPENAI_COMPATIBLE_PLATFORMS, OpenAIPlatformKey } from '../services/openAIStyleService';
 
@@ -20,6 +20,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, lang }) 
   const [openaiBaseUrl, setOpenaiBaseUrl] = useState('');
   const [openaiModel, setOpenaiModel] = useState('');
 
+  // 从 localStorage 加载所有平台的配置
+  const loadOpenaiConfigs = () => {
+    try {
+      const saved = localStorage.getItem('openaiConfigs');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      console.error('Failed to load openai configs', e);
+      return {};
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
       setBaseUrl(localStorage.getItem('customBaseUrl') || '');
@@ -28,9 +39,44 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, lang }) 
       // 加载 OpenAI 兼容平台配置
       const savedPlatform = (localStorage.getItem('openaiPlatform') as OpenAIPlatformKey) || 'xiaomi';
       setOpenaiPlatform(savedPlatform);
-      setOpenaiApiKey(localStorage.getItem('openaiApiKey') || '');
-      setOpenaiBaseUrl(localStorage.getItem('openaiBaseUrl') || '');
-      setOpenaiModel(localStorage.getItem('openaiModel') || '');
+      
+      // 兼容性迁移：检查旧的配置格式并迁移到新格式
+      const oldApiKey = localStorage.getItem('openaiApiKey');
+      const oldBaseUrl = localStorage.getItem('openaiBaseUrl');
+      const oldModel = localStorage.getItem('openaiModel');
+      
+      if (oldApiKey || oldBaseUrl || oldModel) {
+        // 发现旧格式配置，迁移到新格式
+        const configs = loadOpenaiConfigs();
+        if (!configs[savedPlatform]) {
+          configs[savedPlatform] = {
+            apiKey: oldApiKey || '',
+            baseUrl: oldBaseUrl || '',
+            model: oldModel || ''
+          };
+          localStorage.setItem('openaiConfigs', JSON.stringify(configs));
+          console.log('Migrated old OpenAI config to new format');
+        }
+        // 清理旧的配置项
+        localStorage.removeItem('openaiApiKey');
+        localStorage.removeItem('openaiBaseUrl');
+        localStorage.removeItem('openaiModel');
+      }
+      
+      // 加载当前平台的配置
+      const configs = loadOpenaiConfigs();
+      const platformConfig = configs[savedPlatform];
+      if (platformConfig) {
+        setOpenaiApiKey(platformConfig.apiKey || '');
+        setOpenaiBaseUrl(platformConfig.baseUrl || '');
+        setOpenaiModel(platformConfig.model || '');
+      } else {
+        // 使用默认值
+        const defaultConfig = OPENAI_COMPATIBLE_PLATFORMS[savedPlatform];
+        setOpenaiApiKey('');
+        setOpenaiBaseUrl(defaultConfig.defaultBaseUrl);
+        setOpenaiModel(defaultConfig.defaultModel);
+      }
     }
   }, [isOpen]);
 
@@ -45,38 +91,54 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, lang }) 
     // 保存 OpenAI 兼容平台配置
     if (modelProvider === 'openai') {
       localStorage.setItem('openaiPlatform', openaiPlatform);
-      localStorage.setItem('openaiApiKey', openaiApiKey.trim());
-      localStorage.setItem('openaiBaseUrl', openaiBaseUrl.trim());
-      localStorage.setItem('openaiModel', openaiModel.trim());
+      
+      // 保存当前平台的配置到 openaiConfigs 对象中
+      const configs = loadOpenaiConfigs();
+      configs[openaiPlatform] = {
+        apiKey: openaiApiKey.trim(),
+        baseUrl: openaiBaseUrl.trim(),
+        model: openaiModel.trim()
+      };
+      localStorage.setItem('openaiConfigs', JSON.stringify(configs));
     }
     
     onClose();
   };
 
   const handleClear = () => {
-    setBaseUrl('');
-    setModelProvider('gemini');
-    setOpenaiApiKey('');
-    setOpenaiBaseUrl('');
-    setOpenaiModel('');
-    localStorage.removeItem('customBaseUrl');
-    localStorage.setItem('modelProvider', 'gemini');
-    localStorage.removeItem('openaiPlatform');
-    localStorage.removeItem('openaiApiKey');
-    localStorage.removeItem('openaiBaseUrl');
-    localStorage.removeItem('openaiModel');
-    onClose();
+    if (confirm(lang === 'zh' ? '确认清空所有配置？这将删除所有平台的 API 配置。' : 'Clear all configurations? This will delete all platform API configs.')) {
+      setBaseUrl('');
+      setModelProvider('gemini');
+      setOpenaiApiKey('');
+      setOpenaiBaseUrl('');
+      setOpenaiModel('');
+      localStorage.removeItem('customBaseUrl');
+      localStorage.setItem('modelProvider', 'gemini');
+      localStorage.removeItem('openaiPlatform');
+      localStorage.removeItem('openaiConfigs'); // 清空所有平台配置
+      onClose();
+    }
   };
 
-  // 当切换 OpenAI 平台时，自动填充默认值
+  // 当切换 OpenAI 平台时，加载对应平台的配置
   const handlePlatformChange = (platform: OpenAIPlatformKey) => {
     setOpenaiPlatform(platform);
-    const config = OPENAI_COMPATIBLE_PLATFORMS[platform];
-    if (!openaiBaseUrl || openaiBaseUrl === OPENAI_COMPATIBLE_PLATFORMS[openaiPlatform].defaultBaseUrl) {
-      setOpenaiBaseUrl(config.defaultBaseUrl);
-    }
-    if (!openaiModel || openaiModel === OPENAI_COMPATIBLE_PLATFORMS[openaiPlatform].defaultModel) {
-      setOpenaiModel(config.defaultModel);
+    
+    // 加载该平台已保存的配置
+    const configs = loadOpenaiConfigs();
+    const platformConfig = configs[platform];
+    
+    if (platformConfig) {
+      // 如果有保存的配置，使用保存的配置
+      setOpenaiApiKey(platformConfig.apiKey || '');
+      setOpenaiBaseUrl(platformConfig.baseUrl || '');
+      setOpenaiModel(platformConfig.model || '');
+    } else {
+      // 如果没有保存的配置，使用默认值
+      const defaultConfig = OPENAI_COMPATIBLE_PLATFORMS[platform];
+      setOpenaiApiKey('');
+      setOpenaiBaseUrl(defaultConfig.defaultBaseUrl);
+      setOpenaiModel(defaultConfig.defaultModel);
     }
   };
 
@@ -153,18 +215,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, lang }) 
                 <div className="grid grid-cols-2 gap-2">
                   {(Object.keys(OPENAI_COMPATIBLE_PLATFORMS) as OpenAIPlatformKey[]).map((key) => {
                     const platform = OPENAI_COMPATIBLE_PLATFORMS[key];
+                    const configs = loadOpenaiConfigs();
+                    const isConfigured = configs[key] && configs[key].apiKey;
+                    
                     return (
                       <button
                         key={key}
                         onClick={() => handlePlatformChange(key)}
-                        className={`p-2 rounded-lg border-2 transition-all text-left ${
+                        className={`p-2 rounded-lg border-2 transition-all text-left relative ${
                           openaiPlatform === key
                             ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300'
                             : 'border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-orange-300'
                         }`}
                       >
-                        <div className="text-xs font-medium">
-                          {lang === 'zh' ? platform.name : platform.nameEn}
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="text-xs font-medium">
+                            {lang === 'zh' ? platform.name : platform.nameEn}
+                          </div>
+                          {isConfigured && (
+                            <CheckCircle 
+                              size={14} 
+                              className="text-green-500 flex-shrink-0" 
+                              title={lang === 'zh' ? '已配置' : 'Configured'}
+                            />
+                          )}
                         </div>
                       </button>
                     );
