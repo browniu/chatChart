@@ -11,9 +11,10 @@ interface ChartRendererProps {
   chartRef?: React.RefObject<HTMLDivElement>;
   isDarkMode: boolean;
   palette?: string[];
+  scale?: number;
 }
 
-const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkMode, palette }) => {
+const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkMode, palette, scale = 1 }) => {
   const { chartType, data, xAxisKey, series, mermaidCode, htmlCode } = config;
 
   const textColor = isDarkMode ? "#e2e8f0" : "#374151";
@@ -30,18 +31,28 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkM
   const defaultPalette = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"];
   const activePalette = palette && palette.length > 0 ? palette : defaultPalette;
 
+  const wrapContent = (content: React.ReactNode) => (
+    <div 
+      className="w-full h-full origin-top transition-transform duration-200 ease-out"
+      style={{ transform: `scale(${scale})` }}
+    >
+      {content}
+    </div>
+  );
+
   // Render HTML Diagram
   if (chartType === ChartType.HTML) {
     return (
       <div ref={chartRef} className={`w-full h-full min-h-[300px] rounded-lg p-4 transition-colors overflow-auto ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-        {htmlCode ? (
+        {wrapContent(
+        htmlCode ? (
            <div
              className="w-full h-full"
              dangerouslySetInnerHTML={{ __html: htmlCode }}
            />
         ) : (
            <div className="flex items-center justify-center h-full text-gray-500">No HTML code generated.</div>
-        )}
+        ))}
       </div>
     );
   }
@@ -50,11 +61,13 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkM
   if (chartType === ChartType.Mermaid) {
     return (
       <div ref={chartRef} className={`w-full h-full min-h-[300px] rounded-lg p-4 transition-colors ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-         {mermaidCode ? (
+         {
+         wrapContent(
+          mermaidCode ? (
             <MermaidRenderer code={mermaidCode} isDarkMode={isDarkMode} />
          ) : (
             <div className="flex items-center justify-center h-full text-gray-500">No Mermaid code generated.</div>
-         )}
+         ))}
       </div>
     );
   }
@@ -187,9 +200,11 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkM
 
   return (
     <div ref={chartRef} className={`w-full h-full min-h-[300px] rounded-lg p-4 transition-colors ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+      {wrapContent(
       <ResponsiveContainer width="100%" height="100%">
         {renderChart()}
       </ResponsiveContainer>
+    )}
     </div>
   );
 };

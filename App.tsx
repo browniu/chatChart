@@ -15,7 +15,7 @@ import {
   Menu, Send, Image as ImageIcon, Download, Copy, Check,
   Loader2, Sparkles, AlertCircle, Sun, Moon, Palette,
   PanelLeftClose, PanelLeftOpen, Settings, Languages,
-  Workflow, BarChart3, Code as CodeIcon, X, Upload, PieChart
+  Workflow, BarChart3, Code as CodeIcon, X, Upload, PieChart, Maximize2, ZoomIn, ZoomOut, RotateCcw, GripVertical
 } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
 
@@ -51,6 +51,12 @@ const MainContent: React.FC = () => {
   const [isCopied, setIsCopied] = useState(false);
   const [lang, setLang] = useState<Language>('zh');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const [leftPanelWidth, setLeftPanelWidth] = useState(40); // In percentage
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const isResizingWidthRef = useRef(false);
+  const splitContainerRef = useRef<HTMLDivElement>(null);
+  
   
   const { showToast } = useToast();
   const t = translations[lang];
@@ -122,27 +128,40 @@ const MainContent: React.FC = () => {
     return () => window.removeEventListener('paste', handlePaste);
   }, []);
 
+  // Enhanced Detection Logic
+  const detectConfig = (raw: string): ChartConfig | null => {
+    const trimmed = raw.trim();
+    // 1. Valid JSON
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed.chartType) return parsed;
+    } catch (e) {}
+    // 2. Mermaid Detection
+    const mermaidKeys = ['graph', 'flowchart', 'sequenceDiagram', 'pie', 'gantt', 'classDiagram', 'stateDiagram', 'erDiagram', 'journey', 'gitGraph', 'mindmap', 'timeline'];
+    if (mermaidKeys.some(k => trimmed.toLowerCase().startsWith(k))) {
+      return { title: "Custom Diagram", chartType: ChartType.Mermaid, mermaidCode: trimmed };
+    }
+    // 3. HTML Detection
+    if (trimmed.startsWith('<') || (trimmed.includes('class=') && trimmed.includes('>'))) {
+        return { title: "Custom Component", chartType: ChartType.HTML, htmlCode: trimmed };
+    }
+    return null;
+  };
+
   // Real-time parsing with debounce
   useEffect(() => {
     if (!editableCode) return;
-
     const timer = setTimeout(() => {
-      try {
-        const parsed = JSON.parse(editableCode);
-        if (parsed && typeof parsed === 'object') {
-           // We accept if it has chartType
-           if(parsed.chartType) {
-             setCurrentConfig(parsed);
-             setCodeError(null);
-           }
-        }
-      } catch (e: any) {
-        setCodeError(e.message);
+      const detected = detectConfig(editableCode);
+      if (detected) {
+        setCurrentConfig(detected);
+        setCodeError(null);
+      } else {
+        setCodeError(t.invalidJson);
       }
     }, 500);
-
     return () => clearTimeout(timer);
-  }, [editableCode]);
+  }, [editableCode, t.invalidJson]);
 
   // Resize Handlers
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -162,6 +181,29 @@ const MainContent: React.FC = () => {
     isResizingRef.current = false;
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
+  };
+
+  // Horizontal Resize Handlers
+  const handleWidthMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingWidthRef.current = true;
+    document.addEventListener('mousemove', handleWidthMouseMove);
+    document.addEventListener('mouseup', handleWidthMouseUp);
+  };
+
+  const handleWidthMouseMove = (e: MouseEvent) => {
+    if (isResizingWidthRef.current && splitContainerRef.current) {
+      const containerRect = splitContainerRef.current.getBoundingClientRect();
+      const relativeX = e.clientX - containerRect.left;
+      const newWidthPercent = (relativeX / containerRect.width) * 100;
+      setLeftPanelWidth(Math.max(15, Math.min(85, newWidthPercent)));
+    }
+  };
+
+  const handleWidthMouseUp = () => {
+    isResizingWidthRef.current = false;
+    document.removeEventListener('mousemove', handleWidthMouseMove);
+    document.removeEventListener('mouseup', handleWidthMouseUp);
   };
 
   const handleGenerate = async () => {
@@ -494,10 +536,13 @@ const MainContent: React.FC = () => {
           </div>
         </header>
 
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        <div  ref={splitContainerRef} className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
           
-          <div className="w-full lg:w-[40%] flex flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 transition-colors">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0 transition-colors">
+        <div 
+            className="flex flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 transition-colors overflow-hidden"
+            style={{ width: `${leftPanelWidth}%` }}
+          >            
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0 transition-colors">
                <div className="flex gap-2 mb-2">
                  <button 
                     onClick={() => setPrompt(INITIAL_PROMPT)}
@@ -639,7 +684,26 @@ const MainContent: React.FC = () => {
             </div>
           </div>
 
-          <div className="w-full lg:w-[60%] bg-slate-100 dark:bg-black relative flex flex-col overflow-hidden transition-colors">
+              {/* Horizontal Resizer */}
+              <div 
+            onMouseDown={handleWidthMouseDown}
+            className="w-1.5 hover:w-2 bg-gray-200 dark:bg-gray-800 hover:bg-orange-400 dark:hover:bg-orange-500 cursor-col-resize transition-all z-20 flex items-center justify-center group"
+          >
+            <GripVertical size={14} className="text-gray-400 group-hover:text-white" />
+          </div>
+
+          <div className="flex-1 bg-slate-100 dark:bg-black relative flex flex-col overflow-hidden transition-colors" style={{ width: `${100 - leftPanelWidth}%` }}>
+             
+             {/* Zoom Controls */}
+             {currentConfig && (
+               <div className="absolute top-4 right-4 z-30 flex items-center gap-2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 shadow-sm">
+                  <button onClick={() => setZoomLevel(prev => Math.max(0.2, prev - 0.1))} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-600 dark:text-gray-400"><ZoomOut size={16} /></button>
+                  <span className="text-xs font-mono font-bold text-gray-600 dark:text-gray-400 w-12 text-center">{Math.round(zoomLevel * 100)}%</span>
+                  <button onClick={() => setZoomLevel(prev => Math.min(3, prev + 0.1))} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-600 dark:text-gray-400"><ZoomIn size={16} /></button>
+                  <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
+                  <button onClick={() => setZoomLevel(1)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-600 dark:text-gray-400" title={t.reset}><RotateCcw size={16} /></button>
+               </div>
+             )}
              
              {loading && (
                  <div className="absolute inset-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm flex flex-col items-center justify-center">
@@ -666,6 +730,7 @@ const MainContent: React.FC = () => {
                             chartRef={chartContainerRef} 
                             isDarkMode={isDarkMode} 
                             palette={PALETTES[selectedPalette].colors}
+                            scale={zoomLevel}
                         />
                       </div>
                       
