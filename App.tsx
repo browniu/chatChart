@@ -454,13 +454,7 @@ const MainContent: React.FC = () => {
           </div>
           
           <div className="flex gap-2 items-center">
-             <button
-                onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
-                className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors flex items-center gap-1 font-medium text-sm"
-                title="Switch Language"
-             >
-                <Languages size={18} /> {lang.toUpperCase()}
-             </button>
+
 
              <div className="relative">
                 <button 
@@ -499,6 +493,14 @@ const MainContent: React.FC = () => {
              </div>
 
              <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
+
+             <button
+                onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
+                className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors flex items-center gap-1 font-medium text-sm"
+                title="Switch Language"
+             >
+                <Languages size={18} /> {lang.toUpperCase()}
+             </button>
 
              <button
                 onClick={() => setIsDarkMode(!isDarkMode)}
