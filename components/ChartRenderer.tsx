@@ -11,9 +11,10 @@ interface ChartRendererProps {
   chartRef?: React.RefObject<HTMLDivElement>;
   isDarkMode: boolean;
   palette?: string[];
+  scale?: number;
 }
 
-const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkMode, palette }) => {
+const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkMode, palette, scale = 1 }) => {
   const { chartType, data, xAxisKey, series, mermaidCode, htmlCode } = config;
 
   const textColor = isDarkMode ? "#e2e8f0" : "#374151";
@@ -26,40 +27,49 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkM
     boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
   };
 
-  // Default colorful palette if none provided
   const defaultPalette = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"];
   const activePalette = palette && palette.length > 0 ? palette : defaultPalette;
 
-  // Render HTML Diagram
+  const wrapContent = (content: React.ReactNode) => (
+    <div 
+      className="w-full h-full origin-top transition-transform duration-200 ease-out"
+      style={{ transform: `scale(${scale})` }}
+    >
+      {content}
+    </div>
+  );
+
   if (chartType === ChartType.HTML) {
     return (
       <div ref={chartRef} className={`w-full h-full min-h-[300px] rounded-lg p-4 transition-colors overflow-auto ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-        {htmlCode ? (
-           <div 
-             className="w-full h-full"
-             dangerouslySetInnerHTML={{ __html: htmlCode }} 
-           />
-        ) : (
-           <div className="flex items-center justify-center h-full text-gray-500">No HTML code generated.</div>
+        {wrapContent(
+          htmlCode ? (
+            <div 
+              className="w-full h-full"
+              dangerouslySetInnerHTML={{ __html: htmlCode }} 
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full text-gray-500">No HTML code generated.</div>
+          )
         )}
       </div>
     );
   }
 
-  // Render Mermaid Diagram
   if (chartType === ChartType.Mermaid) {
     return (
-      <div ref={chartRef} className={`w-full h-full min-h-[300px] rounded-lg p-4 transition-colors ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-         {mermaidCode ? (
-            <MermaidRenderer code={mermaidCode} isDarkMode={isDarkMode} />
-         ) : (
-            <div className="flex items-center justify-center h-full text-gray-500">No Mermaid code generated.</div>
+      <div ref={chartRef} className={`w-full h-full min-h-[300px] rounded-lg p-4 transition-colors overflow-auto ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+         {wrapContent(
+           mermaidCode ? (
+              <MermaidRenderer code={mermaidCode} isDarkMode={isDarkMode} />
+           ) : (
+              <div className="flex items-center justify-center h-full text-gray-500">No Mermaid code generated.</div>
+           )
          )}
       </div>
     );
   }
 
-  // Safety check for Recharts
   if (!data || !series || !xAxisKey) {
     return (
       <div className="flex items-center justify-center h-full text-gray-500">
@@ -92,7 +102,6 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkM
             ))}
           </LineChart>
         );
-
       case ChartType.Bar:
         return (
           <BarChart data={data}>
@@ -112,7 +121,6 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkM
             ))}
           </BarChart>
         );
-
       case ChartType.Area:
         return (
           <AreaChart data={data}>
@@ -134,7 +142,6 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkM
             ))}
           </AreaChart>
         );
-
       case ChartType.Pie:
         return (
           <PieChart>
@@ -160,7 +167,6 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkM
             ))}
           </PieChart>
         );
-      
       default:
         return (
              <ComposedChart data={data}>
@@ -185,9 +191,11 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkM
 
   return (
     <div ref={chartRef} className={`w-full h-full min-h-[300px] rounded-lg p-4 transition-colors ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-      <ResponsiveContainer width="100%" height="100%">
-        {renderChart()}
-      </ResponsiveContainer>
+      {wrapContent(
+        <ResponsiveContainer width="100%" height="100%">
+          {renderChart()}
+        </ResponsiveContainer>
+      )}
     </div>
   );
 };
