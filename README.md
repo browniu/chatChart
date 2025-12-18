@@ -1,6 +1,6 @@
-# ChartGen AI
+# ChatChart
 
-ChartGen AI is a powerful web application that transforms natural language descriptions into beautiful, editable data visualizations using Google's Gemini API and Recharts.
+ChatChart is a powerful web application that transforms natural language descriptions into beautiful, editable data visualizations using Google's Gemini API and Recharts.
 
 [中文文档](#chinese) | [English Documentation](#english)
 

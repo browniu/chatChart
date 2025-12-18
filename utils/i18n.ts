@@ -2,7 +2,7 @@ export type Language = 'zh' | 'en';
 
 export const translations = {
   zh: {
-    appTitle: "ChartGen AI",
+    appTitle: "ChatChart",
     history: "历史记录",
     clear: "清空",
     noHistory: "暂无历史记录",
@@ -88,7 +88,7 @@ export const translations = {
     pieChart: "饼状图"
   },
   en: {
-    appTitle: "ChartGen AI",
+    appTitle: "ChatChart",
     history: "History",
     clear: "Clear",
     noHistory: "No history yet.",
