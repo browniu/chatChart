@@ -42,6 +42,14 @@ export const OPENAI_COMPATIBLE_PLATFORMS = {
     envKeyName: 'MS_API_KEY',
     envUrlName: 'MS_API_URL'
   },
+  zhipu: {
+    name: '智谱清言',
+    nameEn: 'Zhipu',
+    defaultBaseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    defaultModel: 'glm-4.6',
+    envKeyName: 'ZP_API_KEY',
+    envUrlName: 'ZP_API_URL'
+  },
   custom: {
     name: '自定义 OpenAI',
     nameEn: 'Custom OpenAI',
