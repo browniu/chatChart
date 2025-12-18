@@ -1,17 +1,18 @@
 import React from 'react';
 import { HistoryItem } from '../types';
-import { Clock, Trash2, ChevronRight } from 'lucide-react';
+import { Clock, Trash2, ChevronRight, X } from 'lucide-react';
 import { translations, Language } from '../utils/i18n';
 
 interface HistorySidebarProps {
   history: HistoryItem[];
   onSelect: (item: HistoryItem) => void;
   onClear: () => void;
+  onDelete: (id: string) => void;
   isOpen: boolean;
   lang: Language;
 }
 
-const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, onSelect, onClear, isOpen, lang }) => {
+const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, onSelect, onClear, onDelete, isOpen, lang }) => {
   const t = translations[lang];
   
   if (!isOpen) return null;
@@ -41,10 +42,22 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ history, onSelect, onCl
           history.map((item) => (
             <div 
               key={item.id}
+              className="relative p-3 rounded-lg border border-gray-100 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-gray-800 cursor-pointer transition-colors group bg-white dark:bg-gray-900"
               onClick={() => onSelect(item)}
-              className="p-3 rounded-lg border border-gray-100 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-gray-800 cursor-pointer transition-colors group bg-white dark:bg-gray-900"
             >
-              <div className="flex justify-between items-start mb-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (confirm(lang === 'zh' ? '确认删除此记录？' : 'Delete this record?')) {
+                    onDelete(item.id);
+                  }
+                }}
+                className="absolute top-2 right-2 p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 transition-all"
+                title={lang === 'zh' ? '删除' : 'Delete'}
+              >
+                <X size={14} />
+              </button>
+              <div className="flex justify-between items-start mb-1 pr-6">
                  <span className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider">{item.config.chartType}</span>
                  <span className="text-xs text-gray-400">{new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
               </div>

@@ -90,6 +90,8 @@ const MainContent: React.FC = () => {
   }, [isDarkMode]);
 
   // Load history
+  const [isHistoryLoaded, setIsHistoryLoaded] = useState(false);
+  
   useEffect(() => {
     const saved = localStorage.getItem('chartHistory');
     if (saved) {
@@ -99,12 +101,15 @@ const MainContent: React.FC = () => {
         console.error("Failed to parse history", e);
       }
     }
+    setIsHistoryLoaded(true);
   }, []);
 
-  // Save history
+  // Save history (only after initial load)
   useEffect(() => {
-    localStorage.setItem('chartHistory', JSON.stringify(history));
-  }, [history]);
+    if (isHistoryLoaded) {
+      localStorage.setItem('chartHistory', JSON.stringify(history));
+    }
+  }, [history, isHistoryLoaded]);
 
   // Paste image handler
   useEffect(() => {
@@ -297,6 +302,10 @@ const MainContent: React.FC = () => {
     }
   };
 
+  const handleDeleteHistoryItem = (id: string) => {
+    setHistory(prev => prev.filter(item => item.id !== id));
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -421,6 +430,7 @@ const MainContent: React.FC = () => {
             history={history} 
             onSelect={handleHistorySelect}
             onClear={handleClearHistory}
+            onDelete={handleDeleteHistoryItem}
             lang={lang}
           />
         </div>
