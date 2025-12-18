@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { generateChartFromPrompt } from './services/geminiService';
-import { ChartConfig, HistoryItem } from './types';
+import { generateChartFromPrompt, GenerationMode } from './services/geminiService';
+import { ChartConfig, HistoryItem, ChartType } from './types';
 import ChartRenderer from './components/ChartRenderer';
 import HistorySidebar from './components/HistorySidebar';
 import SettingsModal from './components/SettingsModal';
 import MermaidEditor from './components/MermaidEditor';
+import HtmlEditor from './components/HtmlEditor';
+import CodeEditor from './components/CodeEditor';
 import { ToastProvider, useToast } from './components/Toast';
 import { translations, Language } from './utils/i18n';
 import { 
   Menu, Send, Image as ImageIcon, Download, Copy, Check,
   Loader2, Sparkles, AlertCircle, Sun, Moon, Palette,
   PanelLeftClose, PanelLeftOpen, Settings, Languages,
-  Workflow, BarChart3, Code as CodeIcon
+  Workflow, BarChart3, Code as CodeIcon, X, Upload, LayoutTemplate
 } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
 
@@ -30,8 +32,11 @@ const PALETTES = {
 
 const MainContent: React.FC = () => {
   const [prompt, setPrompt] = useState(INITIAL_PROMPT);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [genMode, setGenMode] = useState<GenerationMode>('auto');
   const [loading, setLoading] = useState(false);
   const [currentConfig, setCurrentConfig] = useState<ChartConfig | null>(null);
+  
   // unique ID for the current config session to reset editor state
   const [currentId, setCurrentId] = useState<string>(Date.now().toString()); 
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -47,6 +52,7 @@ const MainContent: React.FC = () => {
   
   const { showToast } = useToast();
   const t = translations[lang];
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Theme State
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -89,6 +95,30 @@ const MainContent: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('chartHistory', JSON.stringify(history));
   }, [history]);
+
+  // Paste image handler
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        for (const item of items) {
+            if (item.type.indexOf('image') !== -1) {
+                const blob = item.getAsFile();
+                if (blob) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        setSelectedImage(event.target?.result as string);
+                    };
+                    reader.readAsDataURL(blob);
+                }
+            }
+        }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, []);
 
   // Real-time parsing with debounce
   useEffect(() => {
@@ -133,11 +163,14 @@ const MainContent: React.FC = () => {
   };
 
   const handleGenerate = async () => {
-    if (!prompt.trim()) return;
+    if (!prompt.trim() && !selectedImage) return;
     setLoading(true);
     setCodeError(null);
     try {
-      const config = await generateChartFromPrompt(prompt, lang);
+      // If prompt is empty but image exists, provide a default prompt
+      const finalPrompt = prompt.trim() || (lang === 'zh' ? "分析这张图片并绘制图表" : "Analyze this image and create a chart");
+      
+      const config = await generateChartFromPrompt(finalPrompt, selectedImage || undefined, genMode, lang);
       const code = JSON.stringify(config, null, 2);
       setEditableCode(code);
       setCurrentConfig(config);
@@ -147,8 +180,9 @@ const MainContent: React.FC = () => {
       const newItem: HistoryItem = {
         id: Date.now().toString(),
         timestamp: Date.now(),
-        prompt: prompt,
-        config: config
+        prompt: finalPrompt,
+        config: config,
+        image: selectedImage || undefined
       };
       setHistory(prev => [newItem, ...prev]);
       showToast(t.toast.genSuccess, 'success');
@@ -164,7 +198,7 @@ const MainContent: React.FC = () => {
     setSelectedPalette(paletteKey);
     setPaletteMenuOpen(false);
 
-    if (!currentConfig || currentConfig.chartType === 'mermaid') return;
+    if (!currentConfig || currentConfig.chartType === 'mermaid' || currentConfig.chartType === 'html') return;
 
     const colors = PALETTES[paletteKey].colors;
     const newConfig = { ...currentConfig };
@@ -184,6 +218,7 @@ const MainContent: React.FC = () => {
     setEditableCode(code);
     setCurrentConfig(item.config);
     setCurrentId(item.id); // Sync ID
+    setSelectedImage(item.image || null);
     setSidebarOpen(false);
   };
 
@@ -193,12 +228,20 @@ const MainContent: React.FC = () => {
     }
   };
 
-  // Callback from MermaidEditor
-  const handleMermaidUpdate = (newConfig: ChartConfig) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setSelectedImage(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Callback from Editors
+  const handleConfigUpdate = (newConfig: ChartConfig) => {
      setEditableCode(JSON.stringify(newConfig, null, 2));
-     // We do NOT set currentConfig directly here, relying on the useEffect debounce
-     // of editableCode to do it, which prevents re-render loop issues with input cursor.
-     // However, the MermaidEditor uses internal state for the inputs, so it doesn't flicker.
   };
 
   const handleDownloadImage = async () => {
@@ -278,7 +321,8 @@ const MainContent: React.FC = () => {
     }
   };
 
-  const isMermaid = currentConfig?.chartType === 'mermaid';
+  const isMermaid = currentConfig?.chartType === ChartType.Mermaid;
+  const isHtml = currentConfig?.chartType === ChartType.HTML;
 
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-950 font-sans text-slate-800 dark:text-slate-100 overflow-hidden transition-colors">
@@ -428,8 +472,8 @@ const MainContent: React.FC = () => {
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
           
           <div className="w-full lg:w-[40%] flex flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 transition-colors">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0 transition-colors">
-               <div className="flex gap-2 mb-2">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0 transition-colors space-y-3">
+               <div className="flex gap-2">
                  <button 
                     onClick={() => setPrompt(INITIAL_PROMPT)}
                     className="text-xs flex items-center gap-1 px-2 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300 transition-colors"
@@ -443,6 +487,48 @@ const MainContent: React.FC = () => {
                     <Workflow size={12}/> Flowchart Example
                  </button>
                </div>
+
+               {/* Image Upload Area */}
+               <div className="relative">
+                  {selectedImage ? (
+                    <div className="relative w-full h-32 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 flex items-center justify-center group">
+                        <img src={selectedImage} alt="Upload" className="max-h-full max-w-full object-contain" />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                           <button 
+                             onClick={() => fileInputRef.current?.click()}
+                             className="p-2 bg-white/20 hover:bg-white/40 rounded-full text-white backdrop-blur-sm transition-colors"
+                             title={t.upload.change}
+                           >
+                             <Upload size={16} />
+                           </button>
+                           <button 
+                             onClick={() => setSelectedImage(null)}
+                             className="p-2 bg-red-500/80 hover:bg-red-600 rounded-full text-white backdrop-blur-sm transition-colors"
+                             title={t.upload.remove}
+                           >
+                             <X size={16} />
+                           </button>
+                        </div>
+                    </div>
+                  ) : (
+                    <div 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full h-16 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center cursor-pointer hover:border-orange-500 dark:hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-gray-700/50 transition-colors"
+                    >
+                        <span className="text-gray-400 text-sm flex items-center gap-2">
+                            <ImageIcon size={18} /> {t.upload.placeholder}
+                        </span>
+                    </div>
+                  )}
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleFileSelect} 
+                    className="hidden" 
+                    accept="image/*"
+                  />
+               </div>
+
                <div className="relative">
                 <textarea
                   value={prompt}
@@ -450,9 +536,23 @@ const MainContent: React.FC = () => {
                   placeholder={t.describePlaceholder}
                   className="w-full h-24 p-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none resize-none text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 text-sm shadow-sm transition-colors placeholder-gray-400 dark:placeholder-gray-500"
                 />
+                
+                {/* Generation Mode Selector */}
+                <div className="absolute top-[-40px] right-0 flex items-center gap-2">
+                   <select 
+                      value={genMode} 
+                      onChange={(e) => setGenMode(e.target.value as GenerationMode)}
+                      className="text-xs p-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:border-orange-500"
+                   >
+                     <option value="auto">{t.mode.auto}</option>
+                     <option value="standard">{t.mode.standard}</option>
+                     <option value="html">{t.mode.html}</option>
+                   </select>
+                </div>
+
                 <button
                   onClick={handleGenerate}
-                  disabled={loading || !prompt.trim()}
+                  disabled={loading || (!prompt.trim() && !selectedImage)}
                   className="absolute bottom-3 right-3 p-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 transition-colors shadow-sm"
                   title={t.generate}
                 >
@@ -464,9 +564,17 @@ const MainContent: React.FC = () => {
             <div className={`flex-1 flex flex-col min-h-0 transition-colors ${isDarkMode ? 'bg-[#0d1117]' : 'bg-gray-50'}`}>
                {isMermaid && currentConfig ? (
                   <MermaidEditor 
-                    key={currentId} // Reset editor state on new chart
+                    key={currentId} 
                     config={currentConfig}
-                    onUpdate={handleMermaidUpdate}
+                    onUpdate={handleConfigUpdate}
+                    lang={lang}
+                    isDarkMode={isDarkMode}
+                  />
+               ) : isHtml && currentConfig ? (
+                  <HtmlEditor
+                    key={currentId} 
+                    config={currentConfig}
+                    onUpdate={handleConfigUpdate}
                     lang={lang}
                     isDarkMode={isDarkMode}
                   />
@@ -486,18 +594,14 @@ const MainContent: React.FC = () => {
                           <span className="text-green-600 dark:text-green-500">{t.liveEditing}</span>
                         )}
                     </div>
-                    <textarea 
-                        className={`
-                          flex-1 w-full font-mono text-xs sm:text-sm p-4 outline-none resize-none leading-relaxed transition-colors
-                          ${isDarkMode 
-                            ? 'bg-[#0d1117] text-orange-200' 
-                            : 'bg-white text-orange-800'}
-                        `}
-                        value={editableCode}
-                        onChange={(e) => setEditableCode(e.target.value)}
-                        spellCheck={false}
-                        placeholder="// Chart configuration will appear here..."
-                      />
+                    <div className="flex-1 relative">
+                       <CodeEditor 
+                          value={editableCode} 
+                          onChange={setEditableCode} 
+                          language="json" 
+                          isDarkMode={isDarkMode} 
+                       />
+                    </div>
                   </>
                )}
             </div>

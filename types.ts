@@ -4,7 +4,8 @@ export enum ChartType {
   Area = 'area',
   Pie = 'pie',
   Composed = 'composed',
-  Mermaid = 'mermaid'
+  Mermaid = 'mermaid',
+  HTML = 'html'
 }
 
 export interface ChartSeries {
@@ -22,6 +23,7 @@ export interface ChartConfig {
   data?: Record<string, string | number>[]; // Optional for Mermaid
   series?: ChartSeries[]; // Optional for Mermaid
   mermaidCode?: string; // Specific for Mermaid type
+  htmlCode?: string; // Specific for HTML type
 }
 
 export interface HistoryItem {
@@ -29,4 +31,5 @@ export interface HistoryItem {
   timestamp: number;
   prompt: string;
   config: ChartConfig;
+  image?: string; // Base64 image if provided
 }
