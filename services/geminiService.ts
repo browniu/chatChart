@@ -90,6 +90,8 @@ export const generateChartFromPrompt = async (prompt: string, language: 'zh' | '
     [IF STATISTICAL CHART]:
     - Set 'chartType' to line, bar, area, pie, or composed.
     - Construct 'data' and 'series'.
+    - For PIE charts: data MUST have 'name' field and 'value' field. Set 'xAxisKey' to empty string.
+    - For other charts: set 'xAxisKey' to the key for X-axis (e.g., "name", "month").
     - Set 'mermaidCode' to empty string.
     
     [IF DIAGRAM/FLOWCHART]:

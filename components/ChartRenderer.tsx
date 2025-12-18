@@ -44,7 +44,9 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkM
   }
 
   // Safety check for Recharts
-  if (!data || !series || !xAxisKey) {
+  // 饼状图不需要 xAxisKey，其他图表类型需要
+  const needsXAxisKey = chartType !== ChartType.Pie;
+  if (!data || !series || (needsXAxisKey && !xAxisKey)) {
     return (
       <div className="flex items-center justify-center h-full text-gray-500">
         Incomplete data for chart rendering.
@@ -129,7 +131,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkM
                 key={s.dataKey}
                 data={data}
                 dataKey={s.dataKey}
-                nameKey={xAxisKey}
+                nameKey="name" // 饼状图使用 "name" 字段作为标签
                 cx="50%"
                 cy="50%"
                 outerRadius={100}

@@ -25,8 +25,11 @@ Guidelines:
 [IF STATISTICAL CHART]:
 - Set 'chartType' to one of: "line", "bar", "area", "pie", or "composed".
 - Construct 'data' array with data points. Each data point should be an object with keys like: name, value, sales, profit, count, quarter, month, year, label, etc.
+  - For PIE charts: data MUST have 'name' field for labels and 'value' field for values.
 - Construct 'series' array. Each series should have: dataKey (string, required), name (string), color (string, required), type (optional: "monotone", "linear", "step").
-- Set 'xAxisKey' to the key used for X-axis labels (e.g., "name", "month").
+- Set 'xAxisKey':
+  - For PIE charts: set to empty string "" or null (pie charts don't need xAxisKey).
+  - For other charts: set to the key used for X-axis labels (e.g., "name", "month").
 - Leave 'mermaidCode' empty or undefined.
 
 [IF DIAGRAM/FLOWCHART]:
