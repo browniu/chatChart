@@ -74,7 +74,18 @@ export const translations = {
       exportFail: "导出失败",
       genSuccess: "生成成功",
       genFail: "生成失败"
-    }
+    },
+    palette: {
+      benchmark: "基准",
+      default: "默认",
+      ocean: "海洋",
+      sunset: "日落",
+      forest: "森林",
+      monochrome: "单色"
+    },
+    barChart: "数据图表",
+    flowchart: "流程图",
+    pieChart: "饼状图"
   },
   en: {
     appTitle: "ChartGen AI",
@@ -149,6 +160,17 @@ export const translations = {
       exportFail: "Failed to export",
       genSuccess: "Generated successfully",
       genFail: "Generation failed"
-    }
+    },
+    palette: {
+      benchmark: "Benchmark",
+      default: "Default",
+      ocean: "Ocean",
+      sunset: "Sunset",
+      forest: "Forest",
+      monochrome: "Monochrome"
+    },
+    barChart: "Data Chart",
+    flowchart: "Flowchart",
+    pieChart: "Pie Chart"
   }
 };

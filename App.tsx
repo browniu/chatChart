@@ -22,15 +22,7 @@ import * as htmlToImage from 'html-to-image';
 const INITIAL_PROMPT = "2025年Q1-Q4问题解决率趋势图，曲线在Q3触底后于Q4强劲反弹，突破70%";
 const FLOWCHART_PROMPT = "绘制一个机器学习训练流程图：从SFT数据开始，经过SFT模型，进入'Domain Teachers'训练阶段，通过Token级奖励和序列级奖励反馈给模型，形成闭环优化。使用子图区分不同阶段。";
 const PIE_PROMPT = "生成一个每日营养均衡分布的饼状图";
-// Predefined Palettes
-const PALETTES = {
-  benchmark: { name: 'Benchmark', colors: ['#F97316', '#64748B', '#94A3B8', '#CBD5E1', '#E2E8F0', '#F1F5F9'] },
-  default: { name: 'Rainbow', colors: ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"] },
-  ocean: { name: 'Ocean', colors: ['#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7'] },
-  sunset: { name: 'Sunset', colors: ['#f97316', '#ef4444', '#e11d48', '#be123c', '#881337'] },
-  forest: { name: 'Forest', colors: ['#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4'] },
-  monochrome: { name: 'Mono', colors: ['#1f2937', '#4b5563', '#6b7280', '#9ca3af', '#d1d5db'] }
-};
+
 
 const MainContent: React.FC = () => {
   const [prompt, setPrompt] = useState(INITIAL_PROMPT);
@@ -61,6 +53,16 @@ const MainContent: React.FC = () => {
   const { showToast } = useToast();
   const t = translations[lang];
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Predefined Palettes
+  const PALETTES = {
+    benchmark: { name: t.palette.benchmark, colors: ['#F97316', '#64748B', '#94A3B8', '#CBD5E1', '#E2E8F0', '#F1F5F9'] },
+    default: { name: t.palette.default, colors: ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"] },
+    ocean: { name: t.palette.ocean, colors: ['#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7'] },
+    sunset: { name: t.palette.sunset, colors: ['#f97316', '#ef4444', '#e11d48', '#be123c', '#881337'] },
+    forest: { name: t.palette.forest, colors: ['#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4'] },
+    monochrome: { name: t.palette.monochrome, colors: ['#1f2937', '#4b5563', '#6b7280', '#9ca3af', '#d1d5db'] }
+  };
 
   // Theme State
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -548,19 +550,19 @@ const MainContent: React.FC = () => {
                     onClick={() => setPrompt(INITIAL_PROMPT)}
                     className="text-xs flex items-center gap-1 px-2 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300 transition-colors"
                  >
-                    <BarChart3 size={12}/> Data Chart
+                    <BarChart3 size={12}/> {t.barChart}
                  </button>
                  <button 
                     onClick={() => setPrompt(FLOWCHART_PROMPT)}
                     className="text-xs flex items-center gap-1 px-2 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300 transition-colors"
                  >
-                    <Workflow size={12}/> Flowchart
+                    <Workflow size={12}/> {t.flowchart}
                  </button>
                    <button
                        onClick={() => setPrompt(PIE_PROMPT)}
                        className="text-xs flex items-center gap-1 px-2 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300 transition-colors"
                    >
-                       <PieChart size={12}/> Pie Chart
+                       <PieChart size={12}/> {t.pieChart}
                    </button>
                </div>
 
