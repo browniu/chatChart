@@ -14,7 +14,7 @@ interface ChartRendererProps {
 }
 
 const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkMode, palette }) => {
-  const { chartType, data, xAxisKey, series, mermaidCode } = config;
+  const { chartType, data, xAxisKey, series, mermaidCode, htmlCode } = config;
 
   const textColor = isDarkMode ? "#e2e8f0" : "#374151";
   const gridColor = isDarkMode ? "#374151" : "#e5e7eb";
@@ -29,6 +29,22 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkM
   // Default colorful palette if none provided
   const defaultPalette = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"];
   const activePalette = palette && palette.length > 0 ? palette : defaultPalette;
+
+  // Render HTML Diagram
+  if (chartType === ChartType.HTML) {
+    return (
+      <div ref={chartRef} className={`w-full h-full min-h-[300px] rounded-lg p-4 transition-colors overflow-auto ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+        {htmlCode ? (
+           <div
+             className="w-full h-full"
+             dangerouslySetInnerHTML={{ __html: htmlCode }}
+           />
+        ) : (
+           <div className="flex items-center justify-center h-full text-gray-500">No HTML code generated.</div>
+        )}
+      </div>
+    );
+  }
 
   // Render Mermaid Diagram
   if (chartType === ChartType.Mermaid) {
@@ -146,7 +162,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkM
             ))}
           </PieChart>
         );
-      
+
       default:
         return (
              <ComposedChart data={data}>
@@ -161,7 +177,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({ config, chartRef, isDarkM
                     type="monotone"
                     dataKey={s.dataKey}
                     name={s.name || s.dataKey}
-                    stroke={s.color || "#8884d8"} 
+                    stroke={s.color || "#8884d8"}
                   />
                 ))}
             </ComposedChart>

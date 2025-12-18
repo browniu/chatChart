@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChartConfig } from '../types';
 import { translations, Language } from '../utils/i18n';
 import { Settings2, Code } from 'lucide-react';
+import CodeEditor from './CodeEditor';
 
 interface MermaidEditorProps {
   config: ChartConfig;
@@ -13,13 +14,10 @@ interface MermaidEditorProps {
 const MermaidEditor: React.FC<MermaidEditorProps> = ({ config, onUpdate, lang, isDarkMode }) => {
   const t = translations[lang];
 
-  // Initialize state from props. 
-  // Note: This component should be keyed by a unique ID in the parent to force re-initialization on new chart load.
   const [title, setTitle] = useState(config.title || '');
   const [description, setDescription] = useState(config.description || '');
   const [code, setCode] = useState(config.mermaidCode || '');
 
-  // Handle local changes and propagate to parent
   useEffect(() => {
     const timer = setTimeout(() => {
       onUpdate({
@@ -28,7 +26,7 @@ const MermaidEditor: React.FC<MermaidEditorProps> = ({ config, onUpdate, lang, i
         description,
         mermaidCode: code
       });
-    }, 100); // Small debounce to avoid blocking typing
+    }, 200);
 
     return () => clearTimeout(timer);
   }, [title, description, code]);
@@ -70,16 +68,15 @@ const MermaidEditor: React.FC<MermaidEditorProps> = ({ config, onUpdate, lang, i
           <Code size={16} />
           <span>{t.mermaid.code}</span>
         </div>
-        <textarea
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          placeholder={t.mermaid.codePlaceholder}
-          spellCheck={false}
-          className={`
-            flex-1 w-full p-4 font-mono text-xs sm:text-sm outline-none resize-none leading-relaxed transition-colors
-            ${isDarkMode ? 'bg-[#0d1117] text-gray-300' : 'bg-white text-gray-800'}
-          `}
-        />
+        <div className="flex-1 relative">
+          {/* Using HTML mode for mermaid for basic coloring, since mermaid lang isn't default in Monaco basic */}
+          <CodeEditor
+            value={code}
+            onChange={setCode}
+            language="html"
+            isDarkMode={isDarkMode}
+          />
+        </div>
       </div>
     </div>
   );
