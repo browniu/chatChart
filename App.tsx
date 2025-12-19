@@ -53,6 +53,7 @@ const MainContent: React.FC = () => {
   const [leftPanelWidth, setLeftPanelWidth] = useState(40); // In percentage
   const [zoomLevel, setZoomLevel] = useState(1);
   const isResizingWidthRef = useRef(false);
+  const splitContainerRef = useRef<HTMLDivElement>(null);
 
   const { showToast } = useToast();
   const t = translations[lang];
@@ -163,7 +164,7 @@ const MainContent: React.FC = () => {
     document.removeEventListener('mouseup', handleMouseUp);
   };
 
-  // Horizontal Resize Handlers
+  // Horizontal Resize Handlers - Fixed to calculate relative to container
   const handleWidthMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     isResizingWidthRef.current = true;
@@ -172,9 +173,11 @@ const MainContent: React.FC = () => {
   };
 
   const handleWidthMouseMove = (e: MouseEvent) => {
-    if (isResizingWidthRef.current) {
-      const newWidthPercent = (e.clientX / window.innerWidth) * 100;
-      setLeftPanelWidth(Math.max(20, Math.min(80, newWidthPercent)));
+    if (isResizingWidthRef.current && splitContainerRef.current) {
+      const containerRect = splitContainerRef.current.getBoundingClientRect();
+      const relativeX = e.clientX - containerRect.left;
+      const newWidthPercent = (relativeX / containerRect.width) * 100;
+      setLeftPanelWidth(Math.max(15, Math.min(85, newWidthPercent)));
     }
   };
 
@@ -351,7 +354,7 @@ const MainContent: React.FC = () => {
           </div>
         </header>
 
-        <div className="flex-1 flex flex-row overflow-hidden relative">
+        <div ref={splitContainerRef} className="flex-1 flex flex-row overflow-hidden relative">
           
           <div 
             className="flex flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 transition-colors overflow-hidden"
