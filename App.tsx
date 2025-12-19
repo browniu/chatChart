@@ -265,11 +265,13 @@ const MainContent: React.FC = () => {
       const code = JSON.stringify(config, null, 2);
       setEditableCode(code);
       setCurrentConfig(config);
-      setCurrentId(Date.now().toString()); // New session
+      // 用同一个 id 同步「当前会话」与「历史记录」，避免后续编辑无法命中对应历史项
+      const newId = Date.now().toString();
+      setCurrentId(newId); // New session
       setSelectedPalette('benchmark');
       
       const newItem: HistoryItem = {
-        id: Date.now().toString(),
+        id: newId,
         timestamp: Date.now(),
         prompt: finalPrompt,
         config: config,
@@ -337,6 +339,10 @@ const MainContent: React.FC = () => {
   // Callback from Editors
   const handleConfigUpdate = (newConfig: ChartConfig) => {
      setEditableCode(JSON.stringify(newConfig, null, 2));
+     // 同步更新当前历史项（会触发 history 的 useEffect 写回 localStorage）
+     setHistory(prev =>
+       prev.map(item => (item.id === currentId ? { ...item, config: newConfig } : item))
+     );
   };
 
   const handleDownloadImage = async () => {
@@ -414,6 +420,20 @@ const MainContent: React.FC = () => {
       console.error('Copy failed', error);
       showToast(t.toast.copyFail, 'error');
     }
+  };
+
+  // 处理编辑器内容变化
+  const handleCodeChange = (newCode: string) => {
+    setEditableCode(newCode);
+
+    // 更新 localStorage 中的 chartHistory（通过更新 history state 触发持久化）
+    // 只有当内容能解析成有效配置时，才写回历史记录，避免用户编辑中途的“半成品”污染历史。
+    const detected = detectConfig(newCode);
+    if (!detected) return;
+
+    setHistory(prev =>
+      prev.map(item => (item.id === currentId ? { ...item, config: detected } : item))
+    );
   };
 
   const isMermaid = currentConfig?.chartType === ChartType.Mermaid;
@@ -705,7 +725,7 @@ const MainContent: React.FC = () => {
                     <div className="flex-1 relative">
                        <CodeEditor
                           value={editableCode}
-                          onChange={setEditableCode}
+                          onChange={handleCodeChange} // 这里需要触发local storage的更新
                           language="json"
                           isDarkMode={isDarkMode}
                        />
