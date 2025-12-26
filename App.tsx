@@ -22,7 +22,7 @@ import * as htmlToImage from 'html-to-image';
 const INITIAL_PROMPT = "2025年Q1-Q4问题解决率趋势图，曲线在Q3触底后于Q4强劲反弹，突破70%";
 const FLOWCHART_PROMPT = "绘制一个机器学习训练流程图：从SFT数据开始，经过SFT模型，进入'Domain Teachers'训练阶段，通过Token级奖励和序列级奖励反馈给模型，形成闭环优化。使用子图区分不同阶段。";
 const PIE_PROMPT = "生成一个每日营养均衡分布的饼状图";
-
+import './index.css';
 
 const MainContent: React.FC = () => {
   const [prompt, setPrompt] = useState(INITIAL_PROMPT);
